@@ -7,9 +7,11 @@ open Reporting
 let run str =
   let token_res = Scanner.scan_tokens str in
   let parse_res = Result.bind token_res Parser.parse in
-  match parse_res with
+  let interpret_res = Result.bind parse_res Interpreter.interpret_expression in
+  match interpret_res with
   | Error err_list -> print_error_list err_list
-  | Ok exp -> print_endline (Ast.string_of_expression exp)
+  (* TODO: on runtime error in REPL, we should just keep going *)
+  | Ok exp -> print_endline (Interpreter.string_of_value exp)
 
 (** Tries to read a line from the given input channel and catches the error *)
 let try_read ic =
