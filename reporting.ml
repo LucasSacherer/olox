@@ -11,4 +11,4 @@ let rec print_error_list = function
         string_of_int error.line; "] Error"; error.where;
         ": "; error.message;]);
       print_error_list rest
-  | [] -> exit 65
+  | [] -> ()

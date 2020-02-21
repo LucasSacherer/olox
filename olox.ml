@@ -10,7 +10,6 @@ let run str =
   let interpret_res = Result.bind parse_res Interpreter.interpret_expression in
   match interpret_res with
   | Error err_list -> print_error_list err_list
-  (* TODO: on runtime error in REPL, we should just keep going *)
   | Ok exp -> print_endline (Interpreter.string_of_value exp)
 
 (** Tries to read a line from the given input channel and catches the error *)
