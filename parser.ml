@@ -19,7 +19,35 @@ let parse_left_binary operators to_call =
   in
   parse_aux
 
-let rec parse_expression tokens = parse_equality tokens
+let parse_gen_stmt to_call =
+  let parse_stmt_aux expr tokens =
+    match tokens with
+    | [] -> raise (Parser_Error 
+                    ("Missing semicolon after value!", tokens))
+    | head::rest ->
+    match head.token_type with
+    | Semicolon -> to_call expr rest
+    | _ -> raise (Parser_Error
+                   ("Expected semicolon after value!", tokens))
+  in parse_stmt_aux
+
+let rec parse_stmt tokens =
+  match tokens with
+  | [] -> raise (Parser_Error ("Tried to parse empty statement!", tokens))
+  | head::rest ->
+  match head.token_type with
+  | Print -> parse_print_stmt rest
+  | _ -> parse_expr_stmt tokens
+
+and parse_print_stmt tokens =
+  let new_expr, rest = parse_expression tokens in
+  (parse_gen_stmt (fun expr toks -> (PrintExpr {expr}, toks))) new_expr rest
+
+and parse_expr_stmt tokens =
+  let new_expr, rest = parse_expression tokens in
+  (parse_gen_stmt (fun expr toks -> (Expression {expr}, toks))) new_expr rest
+
+and parse_expression tokens = parse_equality tokens
 
 and parse_equality tokens =
   let first, rest = parse_comparison tokens in
@@ -74,16 +102,23 @@ and parse_primary tokens =
       )
   | _ -> raise (Parser_Error ("Expected literal, ident, or group", tokens))
 
-let parse tokens = 
-  try
-    let exp, _ = parse_expression tokens in
-    Ok (exp)
-  with
-    Parser_Error (message,tokens) ->
-      match tokens with
-      | [] -> Error [{line = -1; where = " at end"; message}]
-      | head::_ ->
-      match head.token_type with
-      | EOF -> Error [{line = head.line; where = " at end"; message}]
-      | _ -> Error [{line = head.line; where = sprintf " at '%s'" head.lexeme;
-                     message}]
+let rec parse prev_stmts prev_errors tokens = 
+  match tokens with
+  | [] -> if List.length prev_errors > 0 then Error (List.rev prev_errors) 
+                                         else Ok (List.rev prev_stmts)
+  | head::_ ->
+  match head.token_type with
+  | EOF -> parse prev_stmts prev_errors []
+  | _ ->
+    try
+      let next_stmt, rest_tokens = parse_stmt tokens in
+      parse (next_stmt::prev_stmts) prev_errors rest_tokens 
+    with
+      Parser_Error (message,tokens) -> 
+        match tokens with
+        | [] -> parse prev_stmts ({line = -1; where = " at end"; message}::prev_errors) []
+        | head::rest ->
+        match head.token_type with
+        | EOF -> parse prev_stmts ({line = head.line; where = " at end"; message}::prev_errors) []
+        | _ -> parse prev_stmts ({line = head.line; where = sprintf " at '%s'" head.lexeme;
+                   message}::prev_errors) rest

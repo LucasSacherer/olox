@@ -6,11 +6,11 @@ open Reporting
 (** Runs the interpreter on the given string *)
 let run str =
   let token_res = Scanner.scan_tokens str in
-  let parse_res = Result.bind token_res Parser.parse in
-  let interpret_res = Result.bind parse_res Interpreter.interpret_expression in
+  let parse_res = Result.bind token_res (Parser.parse [] []) in
+  let interpret_res = Result.bind parse_res Interpreter.interpret in
   match interpret_res with
   | Error err_list -> print_error_list err_list
-  | Ok exp -> print_endline (Interpreter.string_of_value exp)
+  | Ok value -> print_endline (Interpreter.string_of_value value)
 
 (** Tries to read a line from the given input channel and catches the error *)
 let try_read ic =

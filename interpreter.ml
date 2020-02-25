@@ -15,6 +15,12 @@ let string_of_value = function
   | BoolValue bl -> sprintf "Bool: %b" bl
   | NilValue -> "Nil"
 
+let stringify = function
+  | StringValue str -> str
+  | FloatValue fl -> sprintf "%f" fl
+  | BoolValue bl -> sprintf "%b" bl
+  | NilValue -> "Nil"
+
 (* interpreter helper functions *)
 let check_unary_float (operator:Token.token) value =
   match value with
@@ -64,7 +70,13 @@ let is_truthy = function
   | _ -> true
 
 (* interpreter *)
-let rec interpret_expression = function
+let rec interpret_stmt = function
+  | Expression exp -> interpret_expression exp.expr
+  | PrintExpr exp ->
+      match interpret_expression exp.expr with
+      | Ok value -> print_endline (stringify value); Ok (NilValue)
+      | Error err -> Error err
+and interpret_expression = function
   | Literal lit -> interpet_literal lit
   | Grouping grp -> interpret_expression grp.expr
   | Unary un -> interpret_unary un.operator un.right
@@ -143,3 +155,11 @@ and interpret_binary_plus operator left_res right_res =
                message = sprintf "Expected either strings or floats, got: %s + %s"
                (string_of_value left_val) (string_of_value right_val)}])
 
+let rec interpret stmt_list =
+  match stmt_list with
+  | [] -> Ok (NilValue)
+  | stmt::rest ->
+      match interpret_stmt stmt with
+      | Error err -> Error (err)
+      | Ok value ->
+          if List.length rest == 0 then Ok value else interpret rest
