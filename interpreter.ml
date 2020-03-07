@@ -1,25 +1,7 @@
 open Ast
 open Printf
 open Reporting
-
-(* value type description *)
-type value =
-  | StringValue of string
-  | FloatValue of float
-  | BoolValue of bool
-  | NilValue
-
-let string_of_value = function
-  | StringValue str -> sprintf "String: '%s'" str
-  | FloatValue fl -> sprintf "Float: %f" fl
-  | BoolValue bl -> sprintf "Bool: %b" bl
-  | NilValue -> "Nil"
-
-let stringify = function
-  | StringValue str -> str
-  | FloatValue fl -> sprintf "%f" fl
-  | BoolValue bl -> sprintf "%b" bl
-  | NilValue -> "Nil"
+open Value
 
 (* interpreter helper functions *)
 let check_unary_float (operator:Token.token) value =
@@ -28,8 +10,8 @@ let check_unary_float (operator:Token.token) value =
   | _ -> Error ([{line = operator.line  ; where = ""; 
                   message = sprintf "Expected Float, got %s" (string_of_value value)}])
 
-let check_binary_float (operator:Token.token) val_tup =
-  match val_tup with
+let check_binary_float (operator:Token.token) left_val right_val =
+  match left_val, right_val with
   | FloatValue left_fl, FloatValue right_fl -> Ok (left_fl, right_fl)
   | _ as left_val, right_val -> 
       Error ([{line = operator.line  ; where = sprintf " right of '%s'" operator.lexeme; 
@@ -70,96 +52,119 @@ let is_truthy = function
   | _ -> true
 
 (* interpreter *)
-let rec interpret_stmt = function
-  | Expression exp -> interpret_expression exp.expr
-  | PrintExpr exp ->
-      match interpret_expression exp.expr with
-      | Ok value -> print_endline (stringify value); Ok (NilValue)
+let rec interpret_stmt stmt env =
+  match stmt with
+  | Statement stmt -> interpret_expression stmt.expr env
+  | PrintStmt stmt -> (
+      match interpret_expression stmt.expr env with
+      | Ok (value, new_env) -> print_endline (stringify value); Ok (NilValue, new_env)
       | Error err -> Error err
-and interpret_expression = function
-  | Literal lit -> interpet_literal lit
-  | Grouping grp -> interpret_expression grp.expr
-  | Unary un -> interpret_unary un.operator un.right
-  | Binary bin -> interpret_binary bin.left bin.operator bin.right
+  )
+  | VarStmt stmt ->
+      let init_res = match stmt.init with
+      | Some expr -> interpret_expression expr env
+      | None -> Ok (NilValue, env)
+      in
+      match init_res with
+      | Error err -> Error err
+      | Ok (init_val, new_env) ->
+          let mod_env = Environ.define new_env stmt.name.lexeme init_val in
+          Ok (NilValue, mod_env)
 
-and interpet_literal = function
-  | StringLiteral str -> Ok (StringValue str)
-  | FloatLiteral fl -> Ok (FloatValue fl)
-  | BoolLiteral bl -> Ok (BoolValue bl)
-  | IdentLiteral id -> Ok (StringValue id) (* This is temporary, need to do a lookup here *)
-  | NilLiteral -> Ok (NilValue)
+and interpret_expression expr env =
+  match expr with
+  | Literal lit -> interpet_literal lit env
+  | Grouping grp -> interpret_expression grp.expr env
+  | Unary un -> interpret_unary un.operator un.right env
+  | Binary bin -> interpret_binary bin.left bin.operator bin.right env
+  | Variable var ->
+      match Environ.get env var.name.lexeme with
+      | Some value -> Ok (value, env)
+      | None -> Error ([{line = var.name.line; where="";
+                         message = sprintf "Not variable called '%s'"
+                                           var.name.lexeme}])
 
-and interpret_unary operator right_expr =
+and interpet_literal lit env =
+  match lit with
+  | StringLiteral str -> Ok (StringValue str, env)
+  | FloatLiteral fl -> Ok (FloatValue fl, env)
+  | BoolLiteral bl -> Ok (BoolValue bl, env)
+  | NilLiteral -> Ok (NilValue, env)
+
+and interpret_unary operator right_expr env =
   let interpret_helper value_res =
+    let value, new_env = value_res in
     match operator.token_type with
-    | Token.Minus ->
-        let float_res = Result.bind value_res (check_unary_float operator) in
-        Result.map (fun fl -> FloatValue (Float.sub 0.0 fl)) float_res
+    | Token.Minus -> (
+        match value with
+        | FloatValue fl -> Ok (FloatValue (Float.sub 0.0 fl), new_env)
+        | _ -> Error ([{line = operator.line  ; where = ""; 
+                        message = sprintf "Expected Float, got %s" 
+                                          (string_of_value value)}])
+    )
     | Token.Bang ->
-        let bool_res = Result.map is_truthy value_res in
-        Result.map (fun bl -> BoolValue (Bool.not bl)) bool_res
+        let b_value = is_truthy value in
+        Ok (BoolValue (Bool.not b_value), new_env)
     | _ -> Error ([{line = operator.line; where = ""; 
                     message = sprintf "Unexpected unary operator: %s" operator.lexeme}])
   in
-  let right_value = interpret_expression right_expr in
-  interpret_helper right_value
+  let right_value_res = interpret_expression right_expr env in
+  Result.bind right_value_res interpret_helper
 
-and interpret_binary left_expr operator right_expr =
-  let interpret_helper left_res right_res =
+and interpret_binary left_expr operator right_expr env =
+  let interpret_helper left_val right_val env=
     match operator.token_type with
-    | Token.Greater -> interpret_binary_float_log tuple_greater operator left_res right_res
-    | Token.GreaterEqual -> interpret_binary_float_log tuple_greater_eq operator left_res right_res
-    | Token.Less -> interpret_binary_float_log tuple_less operator left_res right_res
-    | Token.LessEqual -> interpret_binary_float_log tuple_less_eq operator left_res right_res
-    | Token.Minus -> interpret_binary_float_arith tuple_minus operator left_res right_res
-    | Token.Slash -> interpret_binary_float_arith tuple_div operator left_res right_res
-    | Token.Star -> interpret_binary_float_arith tuple_mult operator left_res right_res
-    | Token.EqualEqual -> interpret_binary_equal false (*is_n_eq*) left_res right_res
-    | Token.BangEqual -> interpret_binary_equal true (*is_n_eq*) left_res right_res
-    | Token.Plus -> interpret_binary_plus operator left_res right_res
+    | Token.Greater -> interpret_binary_float_log tuple_greater operator left_val right_val env
+    | Token.GreaterEqual -> interpret_binary_float_log tuple_greater_eq operator left_val right_val env
+    | Token.Less -> interpret_binary_float_log tuple_less operator left_val right_val env
+    | Token.LessEqual -> interpret_binary_float_log tuple_less_eq operator left_val right_val env
+    | Token.Minus -> interpret_binary_float_arith tuple_minus operator left_val right_val env
+    | Token.Slash -> interpret_binary_float_arith tuple_div operator left_val right_val env
+    | Token.Star -> interpret_binary_float_arith tuple_mult operator left_val right_val env
+    | Token.EqualEqual -> interpret_binary_equal false (*is_n_eq*) left_val right_val env
+    | Token.BangEqual -> interpret_binary_equal true (*is_n_eq*) left_val right_val env
+    | Token.Plus -> interpret_binary_plus operator left_val right_val env
     | _ -> Error ([{line = operator.line; where = "";
                     message = sprintf "Unexpected binary operator: %s" operator.lexeme}])
   in
-  let left_value = interpret_expression left_expr in
-  let right_value = interpret_expression right_expr in
-  interpret_helper left_value right_value
+  match interpret_expression left_expr env with
+  | Error err -> Error err
+  | Ok (left_val, left_env) ->
+  match interpret_expression right_expr left_env with
+  | Error err -> Error err
+  | Ok (right_val, right_env) ->
+  interpret_helper left_val right_val right_env
 
 (* TODO: Find a way to get the two following functions into one *)
-and interpret_binary_float_arith func operator left_res right_res =
-  let tuple_res = combine_results left_res right_res in
-  let float_res = Result.bind tuple_res (check_binary_float operator) in
+and interpret_binary_float_arith func operator left_val right_val env =
+  let float_res = check_binary_float operator left_val right_val in
   let result_res = Result.map func float_res in
-  Result.map (fun fl -> FloatValue fl) result_res
+  Result.map (fun fl -> (FloatValue fl, env)) result_res
 
-and interpret_binary_float_log func operator left_res right_res =
-  let tuple_res = combine_results left_res right_res in
-  let float_res = Result.bind tuple_res (check_binary_float operator) in
+and interpret_binary_float_log func operator left_val right_val env =
+  (*let tuple_res = combine_results left_res right_res in*)
+  let float_res = check_binary_float operator left_val right_val in
   let result_res = Result.map func float_res in
-  Result.map (fun fl -> BoolValue fl) result_res
+  Result.map (fun fl -> (BoolValue fl, env)) result_res
 
-and interpret_binary_equal is_n_eq left_res right_res =
-  let tuple_res = combine_results left_res right_res in
-  let is_eq_res = Result.map tuple_eq tuple_res in
-  Result.map (fun is_eq -> BoolValue (if is_n_eq then Bool.not is_eq else is_eq)) is_eq_res
+and interpret_binary_equal is_n_eq left_val right_val env =
+  let is_eq_res = tuple_eq (left_val, right_val) in
+  Ok (BoolValue (if is_n_eq then Bool.not is_eq_res else is_eq_res), env)
 
-and interpret_binary_plus operator left_res right_res =
-  let tuple_res = combine_results left_res right_res in
-  if Result.is_error tuple_res then Error (Result.get_error tuple_res)
-  else
-  let val_tuple = Result.get_ok tuple_res in
-  match val_tuple with
-  | FloatValue left_fl, FloatValue right_fl -> Ok (FloatValue (tuple_add (left_fl, right_fl)))
-  | StringValue left_str, StringValue right_str -> Ok (StringValue (string_add (left_str, right_str)))
+and interpret_binary_plus operator left_val right_val env =
+  match (left_val, right_val) with
+  | FloatValue left_fl, FloatValue right_fl -> Ok (FloatValue (tuple_add (left_fl, right_fl)), env)
+  | StringValue left_str, StringValue right_str -> Ok (StringValue (string_add (left_str, right_str)), env)
   | _ as left_val, right_val -> 
       Error ([{line = operator.line; where = "";
                message = sprintf "Expected either strings or floats, got: %s + %s"
                (string_of_value left_val) (string_of_value right_val)}])
 
-let rec interpret stmt_list =
+let rec interpret env stmt_list =
   match stmt_list with
-  | [] -> Ok (NilValue)
+  | [] -> Ok (NilValue, env)
   | stmt::rest ->
-      match interpret_stmt stmt with
+      match interpret_stmt stmt env with
       | Error err -> Error (err)
-      | Ok value ->
-          if List.length rest == 0 then Ok value else interpret rest
+      | Ok (value, new_env) ->
+          if List.length rest == 0 then Ok (value, new_env) else interpret new_env rest

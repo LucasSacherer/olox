@@ -4,13 +4,13 @@
 open Reporting
 
 (** Runs the interpreter on the given string *)
-let run str =
+let run str env =
   let token_res = Scanner.scan_tokens str in
   let parse_res = Result.bind token_res (Parser.parse [] []) in
-  let interpret_res = Result.bind parse_res Interpreter.interpret in
+  let interpret_res = Result.bind parse_res (Interpreter.interpret env) in
   match interpret_res with
-  | Error err_list -> print_error_list err_list
-  | Ok value -> print_endline (Interpreter.string_of_value value)
+  | Error err_list -> print_error_list err_list; env
+  | Ok (value, new_env) -> print_endline (Value.string_of_value value); new_env
 
 (** Tries to read a line from the given input channel and catches the error *)
 let try_read ic =
@@ -18,13 +18,14 @@ let try_read ic =
 
 (** Runs the repl *)
 let run_prompt () =
-  let rec do_repl () =
+  let rec do_repl env =
     print_string "> ";
     flush stdout;
     match try_read stdin with
-    | Some s -> run s; do_repl ()
-    | None -> print_endline "Session Ended"; in
-  do_repl ()
+    | None -> print_endline "Session Ended";
+    | Some s -> let new_env = run s env in do_repl new_env
+  in
+  do_repl (Environ.create_environ ())
 
 (** Reads in all the lines in a given file and calls run *)
 let run_file file_name =
@@ -33,7 +34,7 @@ let run_file file_name =
   | Some s -> loop (s :: acc)
   | None -> close_in ic; List.rev acc in
   let file = String.concat " " (loop []) in
-  run file
+  ignore (run file (Environ.create_environ ()))
 
 (** Calls the different read command depending on the number of args *)
 let parse_args =
