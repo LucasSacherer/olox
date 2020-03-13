@@ -77,12 +77,24 @@ and interpret_expression expr env =
   | Grouping grp -> interpret_expression grp.expr env
   | Unary un -> interpret_unary un.operator un.right env
   | Binary bin -> interpret_binary bin.left bin.operator bin.right env
-  | Variable var ->
+  | Variable var -> begin
       match Environ.get env var.name.lexeme with
       | Some value -> Ok (value, env)
       | None -> Error ([{line = var.name.line; where="";
                          message = sprintf "Not variable called '%s'"
                                            var.name.lexeme}])
+  end
+  | Assign assi -> begin
+      if not (Environ.contains env assi.name.lexeme) then
+        Error ([{line = assi.name.line; where="";
+                 message = sprintf "Undefined variable '%s'" assi.name.lexeme}])
+      else
+      match interpret_expression assi.expr env with
+      | Error err -> Error err
+      | Ok (set_val, new_env) ->
+          let mod_env = Environ.define new_env assi.name.lexeme set_val in
+          Ok (set_val, mod_env)
+  end
 
 and interpet_literal lit env =
   match lit with

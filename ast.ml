@@ -13,7 +13,8 @@ let string_of_literal = function
   | NilLiteral -> "Nil Literal"
 
 type expression =
-  | Binary of { left: expression; operator: Token.token; right: expression }
+  | Assign of {name: Token.token; expr: expression}
+  | Binary of {left: expression; operator: Token.token; right: expression }
   | Grouping of {expr: expression}
   | Unary of {operator: Token.token; right: expression}
   | Literal of literal_type
@@ -26,6 +27,8 @@ type statement =
 
 let rec string_of_expression expr =
   String.concat " " (match expr with
+  | Assign assi -> ["("; "assign var '"; assi.name.lexeme; "' = ";
+                    string_of_expression assi.expr; ")"]
   | Binary bin -> ["("; string_of_expression bin.left; bin.operator.lexeme;
                    string_of_expression bin.right; ")"]
   | Grouping grp -> ["("; "group"; string_of_expression grp.expr; ")"]

@@ -84,7 +84,22 @@ and parse_expr_stmt tokens =
   let new_expr, rest = parse_expression tokens in
   (parse_gen_stmt (fun expr toks -> (Statement {expr}, toks))) new_expr rest
 
-and parse_expression tokens = parse_equality tokens
+and parse_expression tokens = parse_assignment tokens
+
+and parse_assignment tokens =
+  let left_expr, right_tokens = parse_equality tokens in
+  match right_tokens with
+  | [] -> (left_expr, right_tokens)
+  | head::rest ->
+  match head.token_type with
+  | Equal -> begin
+    let value, remain_tokens = parse_assignment rest in
+    match left_expr with
+    | Variable var -> (Assign {name = var.name; expr = value}, remain_tokens)
+    | _ -> raise (Parser_Error ("Invalid assignment target!", right_tokens))
+  end
+  | _ -> (left_expr, right_tokens)
+
 
 and parse_equality tokens =
   let first, rest = parse_comparison tokens in
