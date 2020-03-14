@@ -24,6 +24,7 @@ type statement =
   | Statement of {expr: expression}
   | PrintStmt of {expr: expression}
   | VarStmt of {name: Token.token; init: expression option}
+  | BlockStmt of statement list
 
 let rec string_of_expression expr =
   String.concat " " (match expr with
@@ -36,15 +37,19 @@ let rec string_of_expression expr =
   | Literal lit -> [string_of_literal lit]
   | Variable var -> ["("; "variable '"; var.name.lexeme; "')"])
 
-let string_of_statement stmt =
+let rec string_of_statement stmt =
   String.concat " " (match stmt with
-  | Statement stmt -> ["Statement:("; string_of_expression stmt.expr; ")"]
-  | PrintStmt stmt -> ["Print:("; string_of_expression stmt.expr; ")"]
-  | VarStmt stmt -> ["Var:("; stmt.name.lexeme; " = "; 
-                     (match stmt.init with
-                      | Some expr -> string_of_expression expr
-                      | None -> "<no init>"); 
-                     ")"])
+    | Statement stmt -> ["Statement:("; string_of_expression stmt.expr; ")"]
+    | PrintStmt stmt -> ["Print:("; string_of_expression stmt.expr; ")"]
+    | VarStmt stmt -> ["Var:("; stmt.name.lexeme; " = "; 
+                       (match stmt.init with
+                        | Some expr -> string_of_expression expr
+                        | None -> "<no init>"); 
+                       ")"]
+    | BlockStmt stmt_list -> ["Block:("; 
+                              String.concat ", " (List.map string_of_statement stmt_list);
+                              ")"]
+  )
 
 let rec print_stmt_list = function
   | [] -> ()

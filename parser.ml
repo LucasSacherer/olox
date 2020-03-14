@@ -74,11 +74,24 @@ and parse_stmt tokens =
   | head::rest ->
   match head.token_type with
   | Print -> parse_print_stmt rest
+  | LeftBrace -> parse_block_stmt rest
   | _ -> parse_expr_stmt tokens
 
 and parse_print_stmt tokens =
   let new_expr, rest = parse_expression tokens in
   (parse_gen_stmt (fun expr toks -> (PrintStmt {expr}, toks))) new_expr rest
+
+and parse_block_stmt tokens =
+  let rec parse_next_stmt tokens acc =
+    match tokens with
+    | [] -> raise (Parser_Error ("Reached EOF without closing block!", []))
+    | head::rest ->
+    match head.token_type with
+    | RightBrace -> (BlockStmt (List.rev acc), rest)
+    | _ ->
+        let next_stmt, next_toks = parse_decl tokens in parse_next_stmt next_toks (next_stmt :: acc)
+  in
+  parse_next_stmt tokens []
 
 and parse_expr_stmt tokens =
   let new_expr, rest = parse_expression tokens in

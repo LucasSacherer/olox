@@ -55,12 +55,12 @@ let is_truthy = function
 let rec interpret_stmt stmt env =
   match stmt with
   | Statement stmt -> interpret_expression stmt.expr env
-  | PrintStmt stmt -> (
+  | PrintStmt stmt -> begin
       match interpret_expression stmt.expr env with
       | Ok (value, new_env) -> print_endline (stringify value); Ok (NilValue, new_env)
       | Error err -> Error err
-  )
-  | VarStmt stmt ->
+  end
+  | VarStmt stmt -> begin
       let init_res = match stmt.init with
       | Some expr -> interpret_expression expr env
       | None -> Ok (NilValue, env)
@@ -70,6 +70,21 @@ let rec interpret_stmt stmt env =
       | Ok (init_val, new_env) ->
           let mod_env = Environ.define new_env stmt.name.lexeme init_val in
           Ok (NilValue, mod_env)
+  end
+  | BlockStmt stmt_list ->
+      let inner_env = Environ.push_env env in
+      let res = List.fold_left
+        (fun prev_res next_stmt ->
+          match prev_res with
+          | Error err -> Error err
+          | Ok (_, prev_env) -> interpret_stmt next_stmt prev_env
+        )
+        (Ok (NilValue, inner_env))
+        stmt_list 
+      in
+      match res with
+      | Error err -> Error err
+      | Ok (final_val, final_env) -> Ok (final_val, Environ.pop_env final_env)
 
 and interpret_expression expr env =
   match expr with
@@ -81,19 +96,18 @@ and interpret_expression expr env =
       match Environ.get env var.name.lexeme with
       | Some value -> Ok (value, env)
       | None -> Error ([{line = var.name.line; where="";
-                         message = sprintf "Not variable called '%s'"
+                         message = sprintf "No variable called '%s'"
                                            var.name.lexeme}])
   end
   | Assign assi -> begin
-      if not (Environ.contains env assi.name.lexeme) then
-        Error ([{line = assi.name.line; where="";
-                 message = sprintf "Undefined variable '%s'" assi.name.lexeme}])
-      else
-      match interpret_expression assi.expr env with
-      | Error err -> Error err
-      | Ok (set_val, new_env) ->
-          let mod_env = Environ.define new_env assi.name.lexeme set_val in
-          Ok (set_val, mod_env)
+    match interpret_expression assi.expr env with
+    | Error err -> Error err
+    | Ok (set_val, new_env) ->
+    match Environ.assign new_env assi.name.lexeme set_val with
+    | None -> Error ([{line = assi.name.line; where="";
+                       message = sprintf "Can't assign to undeclared variable '%s'"
+                       assi.name.lexeme}])
+    | Some final_env -> Ok (set_val, final_env)
   end
 
 and interpet_literal lit env =
