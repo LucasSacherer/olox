@@ -71,7 +71,7 @@ let rec interpret_stmt stmt env =
           let mod_env = Environ.define new_env stmt.name.lexeme init_val in
           Ok (NilValue, mod_env)
   end
-  | BlockStmt stmt_list ->
+  | BlockStmt stmt_list -> begin
       let inner_env = Environ.push_env env in
       let res = List.fold_left
         (fun prev_res next_stmt ->
@@ -85,6 +85,32 @@ let rec interpret_stmt stmt env =
       match res with
       | Error err -> Error err
       | Ok (final_val, final_env) -> Ok (final_val, Environ.pop_env final_env)
+  end
+  | IfStmt stmt -> begin
+      match interpret_expression stmt.condition env with
+      | Error err -> Error err
+      | Ok (cond_value, cond_env) ->
+          if is_truthy cond_value
+          then interpret_stmt stmt.then_branch cond_env
+          else match stmt.else_branch with
+          | Some else_stmt -> interpret_stmt else_stmt cond_env
+          | None -> Ok (NilValue, cond_env)
+  end
+  | WhileStmt stmt -> interpret_while stmt.condition stmt.body env
+
+and interpret_while condition body env =
+  let cond_res = interpret_expression condition env in
+  match cond_res with
+  | Error err -> Error err
+  | Ok (cond_val, cond_env) ->
+  match is_truthy cond_val with
+  | false -> Ok (NilValue, cond_env)
+  | true -> begin
+    let body_res = interpret_stmt body cond_env in
+    match body_res with
+    | Error err -> Error err
+    | Ok (_, body_env) -> interpret_while condition body body_env
+  end
 
 and interpret_expression expr env =
   match expr with
@@ -109,6 +135,7 @@ and interpret_expression expr env =
                        assi.name.lexeme}])
     | Some final_env -> Ok (set_val, final_env)
   end
+  | Logical log -> interpret_logical log.operator log.left log.right env
 
 and interpet_literal lit env =
   match lit with
@@ -185,6 +212,15 @@ and interpret_binary_plus operator left_val right_val env =
       Error ([{line = operator.line; where = "";
                message = sprintf "Expected either strings or floats, got: %s + %s"
                (string_of_value left_val) (string_of_value right_val)}])
+
+and interpret_logical operator left_exp right_expr env =
+  let left_res = interpret_expression left_exp env in
+  match left_res with
+  | Error err -> Error err
+  | Ok (left_val, left_env) ->
+  match operator.token_type, is_truthy left_val with
+  | Or, true | And, false -> Ok (left_val, left_env)
+  | _ -> interpret_expression right_expr left_env
 
 let rec interpret env stmt_list =
   match stmt_list with

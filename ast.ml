@@ -18,6 +18,7 @@ type expression =
   | Grouping of {expr: expression}
   | Unary of {operator: Token.token; right: expression}
   | Literal of literal_type
+  | Logical of {left: expression; operator: Token.token; right: expression}
   | Variable of {name: Token.token}
 
 type statement =
@@ -25,6 +26,8 @@ type statement =
   | PrintStmt of {expr: expression}
   | VarStmt of {name: Token.token; init: expression option}
   | BlockStmt of statement list
+  | IfStmt of {condition: expression; then_branch: statement; else_branch: statement option}
+  | WhileStmt of {condition: expression; body: statement}
 
 let rec string_of_expression expr =
   String.concat " " (match expr with
@@ -32,6 +35,8 @@ let rec string_of_expression expr =
                     string_of_expression assi.expr; ")"]
   | Binary bin -> ["("; string_of_expression bin.left; bin.operator.lexeme;
                    string_of_expression bin.right; ")"]
+  | Logical log -> ["("; string_of_expression log.left; log.operator.lexeme;
+                   string_of_expression log.right; ")"]
   | Grouping grp -> ["("; "group"; string_of_expression grp.expr; ")"]
   | Unary un -> ["("; un.operator.lexeme; string_of_expression un.right; ")"]
   | Literal lit -> [string_of_literal lit]
@@ -49,6 +54,14 @@ let rec string_of_statement stmt =
     | BlockStmt stmt_list -> ["Block:("; 
                               String.concat ", " (List.map string_of_statement stmt_list);
                               ")"]
+    | IfStmt stmt -> ["If:(cond: "; string_of_expression stmt.condition; " then: ";
+                      string_of_statement stmt.then_branch; " else: ";
+                      (match stmt.else_branch with
+                      | None -> "None"
+                      | Some else_stmt -> string_of_statement else_stmt);
+                      ")"]
+    | WhileStmt stmt -> ["If:(cond: "; string_of_expression stmt.condition; " body: ";
+                         string_of_statement stmt.body; ")"]
   )
 
 let rec print_stmt_list = function

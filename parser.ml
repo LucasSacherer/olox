@@ -75,6 +75,8 @@ and parse_stmt tokens =
   match head.token_type with
   | Print -> parse_print_stmt rest
   | LeftBrace -> parse_block_stmt rest
+  | If -> parse_if_stmt rest
+  | While -> parse_while_stmt rest
   | _ -> parse_expr_stmt tokens
 
 and parse_print_stmt tokens =
@@ -93,6 +95,51 @@ and parse_block_stmt tokens =
   in
   parse_next_stmt tokens []
 
+and parse_if_stmt tokens =
+  match tokens with
+  | [] -> raise (Parser_Error ("Reached EOF after 'if'!", []))
+  | head::rest ->
+  match head.token_type with
+  | LeftParen -> begin
+    let condition, tokens_1 = parse_expression rest in
+    match tokens_1 with
+    | [] -> raise (Parser_Error ("Reached EOF after 'if' condition!", []))
+    | head::rest ->
+    match head.token_type with
+    | RightParen -> begin
+      let then_branch, tokens_2 = parse_stmt rest in
+      match tokens_2 with
+      | [] -> (IfStmt {condition; then_branch; else_branch = None}, [])
+      | head::rest ->
+      match head.token_type with
+      | Else -> begin
+        let else_branch, tokens_3 = parse_stmt rest in
+        (IfStmt {condition; then_branch; else_branch = Some else_branch}, tokens_3)
+      end
+      | _ -> (IfStmt {condition; then_branch; else_branch = None}, tokens_2)
+    end
+    | _ -> raise (Parser_Error ("Expect ')' after if condition!", []))
+  end
+  | _ -> raise (Parser_Error ("Expect '(' after 'if'!", rest))
+
+and parse_while_stmt tokens =
+  match tokens with
+  | [] -> raise (Parser_Error ("Expect '(' after 'while'!", []))
+  | head::rest ->
+  match head.token_type with
+  | LeftParen -> begin
+    let condition, after_cond_tokens = parse_expression rest in
+    match after_cond_tokens with
+    | [] -> raise (Parser_Error ("Expect ')' after condition!", []))
+    | head::tail ->
+    match head.token_type with
+    | RightParen ->
+        let body, final_tokens = parse_stmt tail in
+        (WhileStmt {condition; body}, final_tokens)
+    | _ -> raise (Parser_Error ("Expect ')' after condition!", []))
+  end
+  | _ -> raise (Parser_Error ("Expect '(' after 'while'!", []))
+
 and parse_expr_stmt tokens =
   let new_expr, rest = parse_expression tokens in
   (parse_gen_stmt (fun expr toks -> (Statement {expr}, toks))) new_expr rest
@@ -100,7 +147,7 @@ and parse_expr_stmt tokens =
 and parse_expression tokens = parse_assignment tokens
 
 and parse_assignment tokens =
-  let left_expr, right_tokens = parse_equality tokens in
+  let left_expr, right_tokens = parse_or tokens in
   match right_tokens with
   | [] -> (left_expr, right_tokens)
   | head::rest ->
@@ -113,6 +160,27 @@ and parse_assignment tokens =
   end
   | _ -> (left_expr, right_tokens)
 
+and parse_or tokens =
+  let left_expr, right_tokens = parse_and tokens in
+  match right_tokens with
+  | [] -> (left_expr, right_tokens)
+  | head::rest ->
+  match head.token_type with
+  | Or ->
+    let right_expr, final_tokens = parse_and rest in
+    (Logical {left = left_expr; operator = head; right = right_expr}, final_tokens)
+  | _ -> (left_expr, right_tokens)
+
+and parse_and tokens =
+  let left_expr, right_tokens = parse_equality tokens in
+  match right_tokens with
+  | [] -> (left_expr, right_tokens)
+  | head::tail ->
+  match head.token_type with
+  | And ->
+      let right_expr, final_tokens = parse_equality tail in
+      (Logical {left = left_expr; operator = head; right = right_expr}, final_tokens)
+  | _ -> (left_expr, right_tokens)
 
 and parse_equality tokens =
   let first, rest = parse_comparison tokens in
