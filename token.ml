@@ -1,5 +1,5 @@
 type token_type =
-(* single char tokens *)
+  (* single char tokens *)
   | LeftParen
   | RightParen
   | LeftBrace
@@ -11,7 +11,7 @@ type token_type =
   | Semicolon
   | Slash
   | Star
-(* one or two char tokens *)
+  (* one or two char tokens *)
   | Bang
   | BangEqual
   | Equal
@@ -20,11 +20,11 @@ type token_type =
   | GreaterEqual
   | Less
   | LessEqual
-(* literals *)
+  (* literals *)
   | Identifier of string
   | String of string
   | Number of float
-(* keywords *)
+  (* keywords *)
   | And
   | Class
   | Else
@@ -41,64 +41,100 @@ type token_type =
   | True
   | Var
   | While
-(* source file stuff *)
+  (* source file stuff *)
   | Comment
   | EOF
 
 let get_token_name = function
-  | LeftParen -> "LeftParen"
-  | RightParen -> "RightParen"
-  | LeftBrace -> "LeftBrace"
-  | RightBrace -> "RightBrace"
-  | Comma -> "Comma"
-  | Dot -> "Dot"
-  | Minus -> "Minus"
-  | Plus -> "Plus"
-  | Semicolon -> "Semicolon"
-  | Slash -> "Slash"
-  | Star -> "Star"
-  | Bang -> "Bang"
-  | BangEqual -> "BangEqual"
-  | Equal -> "Equal"
-  | EqualEqual -> "EqualEqual"
-  | Greater -> "Greater"
-  | GreaterEqual -> "GreaterEqual"
-  | Less -> "Less"
-  | LessEqual -> "LessEqual"
-  | Identifier _ -> "Identifier"
-  | String _ -> "String"
-  | Number _ -> "Number"
-  | And -> "And"
-  | Class -> "Class"
-  | Else -> "Else"
-  | False -> "False"
-  | Fun -> "Fun"
-  | For -> "For"
-  | If -> "If"
-  | Nil -> "Nil"
-  | Or -> "Or"
-  | Print -> "Print"
-  | Return -> "Return"
-  | Super -> "Super"
-  | This -> "This"
-  | True -> "True"
-  | Var -> "Var"
-  | While -> "While"
-  | Comment -> "Comment"
-  | EOF -> "EOF"
+  | LeftParen ->
+      "LeftParen"
+  | RightParen ->
+      "RightParen"
+  | LeftBrace ->
+      "LeftBrace"
+  | RightBrace ->
+      "RightBrace"
+  | Comma ->
+      "Comma"
+  | Dot ->
+      "Dot"
+  | Minus ->
+      "Minus"
+  | Plus ->
+      "Plus"
+  | Semicolon ->
+      "Semicolon"
+  | Slash ->
+      "Slash"
+  | Star ->
+      "Star"
+  | Bang ->
+      "Bang"
+  | BangEqual ->
+      "BangEqual"
+  | Equal ->
+      "Equal"
+  | EqualEqual ->
+      "EqualEqual"
+  | Greater ->
+      "Greater"
+  | GreaterEqual ->
+      "GreaterEqual"
+  | Less ->
+      "Less"
+  | LessEqual ->
+      "LessEqual"
+  | Identifier _ ->
+      "Identifier"
+  | String _ ->
+      "String"
+  | Number _ ->
+      "Number"
+  | And ->
+      "And"
+  | Class ->
+      "Class"
+  | Else ->
+      "Else"
+  | False ->
+      "False"
+  | Fun ->
+      "Fun"
+  | For ->
+      "For"
+  | If ->
+      "If"
+  | Nil ->
+      "Nil"
+  | Or ->
+      "Or"
+  | Print ->
+      "Print"
+  | Return ->
+      "Return"
+  | Super ->
+      "Super"
+  | This ->
+      "This"
+  | True ->
+      "True"
+  | Var ->
+      "Var"
+  | While ->
+      "While"
+  | Comment ->
+      "Comment"
+  | EOF ->
+      "EOF"
 
-type token =
-  { token_type: token_type;
-    lexeme: string;
-    line: int;
-  }
+type token = {token_type: token_type; lexeme: string; line: int}
 
 let print_token token =
-  print_endline (String.concat " " [get_token_name token.token_type;
-    token.lexeme;])
+  print_endline
+    (String.concat " " [get_token_name token.token_type; token.lexeme])
 
 let rec print_token_list = function
   | token :: rest ->
-      print_token token;
-      print_token_list rest
-  | [] -> ()
+      print_token token ; print_token_list rest
+  | [] ->
+      ()
