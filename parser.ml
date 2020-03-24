@@ -31,6 +31,24 @@ let parse_gen_stmt to_call =
                    ("Expected semicolon after value!", tokens))
   in parse_stmt_aux
 
+let generate_for_loop init_stmt_opt cond_expr_opt inc_expr_opt body_stmt =
+  let final_body =
+    match inc_expr_opt with
+    | None -> body_stmt
+    | Some inc_expr -> BlockStmt [body_stmt; Statement {expr = inc_expr}]
+  in
+  let while_stmt =
+    match cond_expr_opt with
+    | None -> WhileStmt {condition = Literal (BoolLiteral true); body = final_body}
+    | Some cond_expr ->
+        WhileStmt {condition = cond_expr; body = final_body}
+  in
+  let final_stmt =
+    match init_stmt_opt with
+    | None -> while_stmt
+    | Some init_stmt -> BlockStmt [init_stmt; while_stmt]
+  in final_stmt
+
 let rec parse_decl tokens =
   match tokens with
   | [] -> raise (Parser_Error ("Tried to parse empty decleration!", tokens))
@@ -77,6 +95,7 @@ and parse_stmt tokens =
   | LeftBrace -> parse_block_stmt rest
   | If -> parse_if_stmt rest
   | While -> parse_while_stmt rest
+  | For -> parse_for_stmt rest
   | _ -> parse_expr_stmt tokens
 
 and parse_print_stmt tokens =
@@ -139,6 +158,58 @@ and parse_while_stmt tokens =
     | _ -> raise (Parser_Error ("Expect ')' after condition!", []))
   end
   | _ -> raise (Parser_Error ("Expect '(' after 'while'!", []))
+
+and parse_for_stmt tokens =
+  match tokens with
+  | [] -> raise (Parser_Error ("Expected '(' after 'for'!", []))
+  | head::rest ->
+  match head.token_type with
+  | LeftParen -> begin
+    match rest with
+    | [] -> raise (Parser_Error ("Expected ';' or initialize stmt!", []))
+    | head::rest ->
+    let init_stmt_opt, remain_tokens =
+      match head.token_type with
+      | Semicolon -> (None, rest)
+      | Var -> let var_stmt, rest = parse_var_decl rest in (Some (var_stmt), rest)
+      | _ -> let expr_stmt, rest = parse_expr_stmt rest in (Some (expr_stmt), rest)
+    in
+    match remain_tokens with
+    | [] -> raise (Parser_Error 
+              ("Expected ';' or condition after initialize stmt of 'while'!", []))
+    | head::rest ->
+    let cond_expr_opt, remain_tokens =
+      match head.token_type with
+      | Semicolon -> (None, rest)
+      | _ -> 
+          let expr, rest = parse_expression remain_tokens in
+          match rest with
+          | [] -> raise (Parser_Error ("Expected ';' after loop condition!", []))
+          | head::rest ->
+          match head.token_type with
+          | Semicolon -> (Some (expr), rest)
+          | _ -> raise (Parser_Error ("Expected ';' after loop condition!", rest))
+    in
+    match remain_tokens with
+    | [] -> raise (Parser_Error ("Expected ')' or increment stmt after init!", []))
+    | head::rest ->
+    let inc_expr_opt, remain_tokens =
+      match head.token_type with
+      | RightParen -> (None, rest)
+      | _ ->
+          let expr, rest = parse_expression remain_tokens in
+          match rest with
+          | [] -> raise (Parser_Error ("Expected ')' after for clauses!", []))
+          | head::rest ->
+          match head.token_type with
+          | RightParen -> (Some (expr), rest)
+          | _ -> raise (Parser_Error ("Expected ')' after for clauses!", rest))
+    in
+    let body_stmt, remain_tokens = parse_stmt remain_tokens in
+    (generate_for_loop init_stmt_opt cond_expr_opt inc_expr_opt body_stmt,
+     remain_tokens)
+  end
+  | _ -> raise (Parser_Error ("Expected '(' after 'for'!", rest))
 
 and parse_expr_stmt tokens =
   let new_expr, rest = parse_expression tokens in
