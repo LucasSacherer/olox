@@ -12,7 +12,7 @@ let run str env =
   | Error err_list ->
       print_error_list err_list ; env
   | Ok (value, new_env) ->
-      print_endline (Value.string_of_value value) ;
+      print_endline (Environ.string_of_value value) ;
       new_env
 
 (** Tries to read a line from the given input channel and catches the error *)

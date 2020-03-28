@@ -1,7 +1,7 @@
 open Ast
 open Printf
 open Reporting
-open Value
+open Environ
 
 (* interpreter helper functions *)
 let check_unary_float (operator : Token.token) value =
@@ -184,6 +184,8 @@ and interpret_expression expr env =
           Ok (set_val, final_env) ) )
   | Logical log ->
       interpret_logical log.operator log.left log.right env
+  | Call call ->
+      interpret_call call.callee call.paren call.arguments env
 
 and interpet_literal lit env =
   match lit with
@@ -306,6 +308,55 @@ and interpret_logical operator left_exp right_expr env =
         Ok (left_val, left_env)
     | _ ->
         interpret_expression right_expr left_env )
+
+and interpret_call callee left_paren arguments env =
+  match interpret_expression callee env with
+  | Error err ->
+      Error err
+  | Ok (callee_val, callee_env) -> (
+      let arguments_res =
+        List.fold_left
+          (fun prev_res next_expr ->
+            match prev_res with
+            | Error error ->
+                Error error
+            | Ok (val_acc, prev_env) -> (
+                let next_res = interpret_expression next_expr prev_env in
+                match next_res with
+                | Error error ->
+                    Error error
+                | Ok (next_val, next_env) ->
+                    Ok (next_val :: val_acc, next_env) ))
+          (Ok ([], callee_env))
+          arguments
+      in
+      match arguments_res with
+      | Error error ->
+          Error error
+      | Ok (rev_args, args_env) -> (
+          let call_args = List.rev rev_args in
+          match callee_val with
+          | FunctionValue func -> (
+              if func.arity != List.length call_args then
+                Error
+                  [ { line= left_paren.line
+                    ; where= ""
+                    ; message=
+                        sprintf "Expected %i arguments, got %i" func.arity
+                          (List.length call_args) } ]
+              else
+                match func.to_call call_args (get_global args_env) with
+                | Error error ->
+                    Error error
+                | Ok (call_val, new_global) ->
+                    Ok (call_val, apply_global args_env new_global) )
+          | _ ->
+              Error
+                [ { line= left_paren.line
+                  ; where= ""
+                  ; message=
+                      sprintf "Can only call functions and classes, got %s"
+                        (string_of_value callee_val) } ] ) )
 
 let rec interpret env stmt_list =
   match stmt_list with

@@ -19,6 +19,7 @@ let string_of_literal = function
 type expression =
   | Assign of {name: Token.token; expr: expression}
   | Binary of {left: expression; operator: Token.token; right: expression}
+  | Call of {callee: expression; paren: Token.token; arguments: expression list}
   | Grouping of {expr: expression}
   | Unary of {operator: Token.token; right: expression}
   | Literal of literal_type
@@ -51,6 +52,12 @@ let rec string_of_expression expr =
         ; string_of_expression bin.left
         ; bin.operator.lexeme
         ; string_of_expression bin.right
+        ; ")" ]
+    | Call call ->
+        [ "( calle:"
+        ; string_of_expression call.callee
+        ; " with args: "
+        ; String.concat ", " (List.map string_of_expression call.arguments)
         ; ")" ]
     | Logical log ->
         [ "("

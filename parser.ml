@@ -358,14 +358,59 @@ and parse_multiplication tokens =
 and parse_unary tokens =
   match tokens with
   | [] ->
-      parse_primary tokens
+      parse_call tokens
   | head :: rest -> (
     match head.token_type with
     | Bang | Minus ->
         let right, rest = parse_unary rest in
         (Unary {operator= head; right}, rest)
     | _ ->
-        parse_primary tokens )
+        parse_call tokens )
+
+and parse_call tokens =
+  let rec try_parse_call base_exp tokens =
+    match tokens with
+    | [] ->
+        (base_exp, [])
+    | head :: rest -> (
+      match head.token_type with
+      | LeftParen ->
+          let call_expr, remain_tokens = parse_call_end base_exp head rest in
+          try_parse_call call_expr remain_tokens
+      | _ ->
+          (base_exp, tokens) )
+  in
+  let base_exp, remain_tokens = parse_primary tokens in
+  try_parse_call base_exp remain_tokens
+
+and parse_call_end base_exp left_paren tokens =
+  let rec try_parse_argument tokens acc =
+    if List.length acc >= 255 then
+      raise (Parser_Error ("Cannot have more than 255 arguments!", tokens))
+    else
+      let new_arg, remain_tokens = parse_expression tokens in
+      match remain_tokens with
+      | [] ->
+          raise (Parser_Error ("Expected ')' after arguments", []))
+      | head :: rest -> (
+        match head.token_type with
+        | Comma ->
+            try_parse_argument rest (new_arg :: acc)
+        | RightParen ->
+            (List.rev acc, rest)
+        | _ ->
+            raise (Parser_Error ("Expexted ')' after arguments!", rest)) )
+  in
+  match tokens with
+  | [] ->
+      raise (Parser_Error ("Expected ')' to end funciton call!", []))
+  | head :: rest -> (
+    match head.token_type with
+    | RightParen ->
+        (Call {callee= base_exp; paren= left_paren; arguments= []}, rest)
+    | _ ->
+        let arguments, remain_tokens = try_parse_argument tokens [] in
+        (Call {callee= base_exp; paren= left_paren; arguments}, remain_tokens) )
 
 and parse_primary tokens =
   match tokens with
