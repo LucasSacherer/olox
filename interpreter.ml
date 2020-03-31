@@ -130,6 +130,37 @@ let rec interpret_stmt stmt env =
               Ok (NilValue, cond_env) ) )
   | WhileStmt stmt ->
       interpret_while stmt.condition stmt.body env
+  | FuncStmt stmt ->
+      interpret_func stmt.name stmt.params stmt.body env
+
+and interpret_func name params body env =
+  let function_val =
+    FunctionValue
+      { arity= List.length params
+      ; name= name.lexeme
+      ; to_call= gen_func_to_call params body }
+  in
+  let new_env = Environ.define env name.lexeme function_val in
+  Ok (NilValue, new_env)
+
+and gen_func_to_call params body =
+  let string_params = List.map (fun param -> param.Token.lexeme) params in
+  let func_to_call args global_env =
+    let new_env = Environ.from_global global_env in
+    let local_env = Environ.push_env new_env in
+    let call_env =
+      List.fold_left2
+        (fun prev_env param arg -> Environ.define prev_env param arg)
+        local_env string_params args
+    in
+    let env_res = interpret_stmt body call_env in
+    match env_res with
+    | Error err ->
+        Error err
+    | Ok (final_val, final_env) ->
+        Ok (final_val, Environ.get_global final_env)
+  in
+  func_to_call
 
 and interpret_while condition body env =
   let cond_res = interpret_expression condition env in

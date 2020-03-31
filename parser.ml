@@ -59,6 +59,8 @@ let generate_for_loop init_stmt_opt cond_expr_opt inc_expr_opt body_stmt =
   in
   final_stmt
 
+type func_type = Function | Method
+
 let rec parse_decl tokens =
   match tokens with
   | [] ->
@@ -67,8 +69,75 @@ let rec parse_decl tokens =
     match head.token_type with
     | Var ->
         parse_var_decl rest
+    | Fun ->
+        parse_function rest Function
     | _ ->
         parse_stmt tokens )
+
+and parse_function tokens _ (* func_type *) =
+  match tokens with
+  | [] ->
+      raise (Parser_Error ("Expected name to start function decleration!", []))
+  | head :: rest -> (
+      let name =
+        match head.token_type with
+        | Identifier _ ->
+            head
+        | _ ->
+            raise (Parser_Error ("Expected ident for function name!", rest))
+      in
+      let rec parse_params tokens acc =
+        match tokens with
+        | [] ->
+            raise (Parser_Error ("Expected ')' after paramters!", []))
+        | head :: rest -> (
+          match head.token_type with
+          | RightParen ->
+              (List.rev acc, rest)
+          | Identifier _ -> (
+              let new_params = head :: acc in
+              match rest with
+              | [] ->
+                  raise
+                    (Parser_Error ("Expected ')' or ',' in parameter list!", []))
+              | head :: other_rest -> (
+                match head.token_type with
+                | Comma ->
+                    parse_params other_rest new_params
+                | RightParen ->
+                    parse_params rest new_params
+                | _ ->
+                    raise
+                      (Parser_Error
+                         ("Expected ')' or ',' in paramater list!", other_rest))
+                ) )
+          | _ ->
+              raise
+                (Parser_Error ("Expected ')' or another parameter name!", rest))
+          )
+      in
+      match rest with
+      | [] ->
+          raise (Parser_Error ("Expected paramters after function name!", []))
+      | head :: rest -> (
+        match head.token_type with
+        | LeftParen -> (
+            let params, other_toks = parse_params rest [] in
+            match other_toks with
+            | [] ->
+                raise
+                  (Parser_Error ("Expected function body after parameters!", []))
+            | head :: rest -> (
+              match head.token_type with
+              | LeftBrace ->
+                  let body, remain_tokens = parse_block_stmt rest in
+                  (FuncStmt {name; params; body}, remain_tokens)
+              | _ ->
+                  raise
+                    (Parser_Error ("Expected '{' to start function body!", rest))
+              ) )
+        | _ ->
+            raise (Parser_Error ("Expected '(' after function name!", rest)) ) )
 
 and parse_var_decl tokens =
   match tokens with
@@ -389,15 +458,16 @@ and parse_call_end base_exp left_paren tokens =
       raise (Parser_Error ("Cannot have more than 255 arguments!", tokens))
     else
       let new_arg, remain_tokens = parse_expression tokens in
+      let new_acc = new_arg :: acc in
       match remain_tokens with
       | [] ->
           raise (Parser_Error ("Expected ')' after arguments", []))
       | head :: rest -> (
         match head.token_type with
         | Comma ->
-            try_parse_argument rest (new_arg :: acc)
+            try_parse_argument rest new_acc
         | RightParen ->
-            (List.rev acc, rest)
+            (List.rev new_acc, rest)
         | _ ->
             raise (Parser_Error ("Expexted ')' after arguments!", rest)) )
   in

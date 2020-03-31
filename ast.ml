@@ -36,6 +36,7 @@ type statement =
       ; then_branch: statement
       ; else_branch: statement option }
   | WhileStmt of {condition: expression; body: statement}
+  | FuncStmt of {name: Token.token; params: Token.token list; body: statement}
 
 let rec string_of_expression expr =
   String.concat " "
@@ -110,6 +111,15 @@ let rec string_of_statement stmt =
     | WhileStmt stmt ->
         [ "If:(cond: "
         ; string_of_expression stmt.condition
+        ; " body: "
+        ; string_of_statement stmt.body
+        ; ")" ]
+    | FuncStmt stmt ->
+        [ "Function:(name: "
+        ; stmt.name.lexeme
+        ; " args: "
+        ; String.concat ", "
+            (List.map (fun tok -> tok.Token.lexeme) stmt.params)
         ; " body: "
         ; string_of_statement stmt.body
         ; ")" ] )
