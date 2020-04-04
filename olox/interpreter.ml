@@ -4,17 +4,6 @@ open Reporting
 open Environ
 
 (* interpreter helper functions *)
-let check_unary_float (operator : Token.token) value =
-  match value with
-  | FloatValue fl ->
-      Ok fl
-  | _ ->
-      Error
-        [ { line= operator.line
-          ; where= ""
-          ; message= sprintf "Expected Float, got %s" (string_of_value value) }
-        ]
-
 let check_binary_float (operator : Token.token) left_val right_val =
   match (left_val, right_val) with
   | FloatValue left_fl, FloatValue right_fl ->
@@ -58,17 +47,6 @@ let tuple_eq tuple =
       false
   | (_ as left), right ->
       left = right
-
-let combine_results left_res right_res =
-  match left_res with
-  | Error err ->
-      Error err
-  | Ok left_val -> (
-    match right_res with
-    | Error err ->
-        Error err
-    | Ok right_val ->
-        Ok (left_val, right_val) )
 
 let is_truthy = function BoolValue bl -> bl | NilValue -> false | _ -> true
 

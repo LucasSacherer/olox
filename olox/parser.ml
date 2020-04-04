@@ -59,7 +59,7 @@ let generate_for_loop init_stmt_opt cond_expr_opt inc_expr_opt body_stmt =
   in
   final_stmt
 
-type func_type = Function | Method
+type func_type = Function (*| Method*)
 
 let rec parse_decl tokens =
   match tokens with

@@ -1,4 +1,4 @@
 (executable
- (name olox)
- (libraries unix)
+ (name main)
+ (libraries olox)
  (modes exe byte))
