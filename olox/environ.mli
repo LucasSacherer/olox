@@ -1,10 +1,10 @@
 (* Types that build up the environment *)
 
-type environ
 (** Imutable representation of the environment state *)
+type environ
 
-type global_env
 (** Global environment, usualy stored in an environ *)
+type global_env
 
 (** The diffierent values that can be stored in an environment *)
 type value =
