@@ -52,3 +52,7 @@ val get_token_name : token_type -> string
 val print_token : token -> unit
 
 val print_token_list : token list -> unit
+
+val string_of_token : token -> string
+
+val string_of_token_list : token list -> string
