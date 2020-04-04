@@ -21,7 +21,7 @@ type token_type =
   | Less
   | LessEqual
   (* literals *)
-  | Identifier of string
+  | Identifier
   | String of string
   | Number of float
   (* keywords *)

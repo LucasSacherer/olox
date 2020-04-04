@@ -81,7 +81,7 @@ and parse_function tokens _ (* func_type *) =
   | head :: rest -> (
       let name =
         match head.token_type with
-        | Identifier _ ->
+        | Identifier ->
             head
         | _ ->
             raise (Parser_Error ("Expected ident for function name!", rest))
@@ -94,7 +94,7 @@ and parse_function tokens _ (* func_type *) =
           match head.token_type with
           | RightParen ->
               (List.rev acc, rest)
-          | Identifier _ -> (
+          | Identifier -> (
               let new_params = head :: acc in
               match rest with
               | [] ->
@@ -146,7 +146,7 @@ and parse_var_decl tokens =
   | head :: rest -> (
       let name =
         match head.token_type with
-        | Identifier _ ->
+        | Identifier ->
             head
         | _ ->
             raise (Parser_Error ("Expected identifier after var!", rest))
@@ -501,7 +501,7 @@ and parse_primary tokens =
         (Literal (FloatLiteral fl), rest)
     | String str ->
         (Literal (StringLiteral str), rest)
-    | Identifier _ ->
+    | Identifier ->
         (Variable {name= head}, rest)
     | LeftParen -> (
         let next_expr, rest = parse_expression rest in

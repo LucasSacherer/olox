@@ -21,7 +21,7 @@ type token_type =
   | Less
   | LessEqual
   (* literals *)
-  | Identifier of string
+  | Identifier
   | String of string
   | Number of float
   (* keywords *)
@@ -84,7 +84,7 @@ let get_token_name = function
       "Less"
   | LessEqual ->
       "LessEqual"
-  | Identifier _ ->
+  | Identifier ->
       "Identifier"
   | String _ ->
       "String"

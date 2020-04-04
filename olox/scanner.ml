@@ -169,7 +169,7 @@ let create_ident_token str pos =
   let lexeme = String.sub str pos.start length in
   match Hashtbl.find_opt keywords lexeme with
   | None ->
-      create_token_pos_pair str pos (Identifier lexeme)
+      create_token_pos_pair str pos Identifier
   | Some key_type ->
       create_token_pos_pair str pos key_type
 
