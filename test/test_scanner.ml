@@ -23,20 +23,56 @@ let generate_token_list specs =
   in
   loop specs []
 
+let run_scanner_test input expected =
+  let expected_tokens = generate_token_list expected in
+  let tokens = Result.get_ok (scan_tokens input) in
+  token_list_assert_equal expected_tokens tokens
+
 (* unit tests start here *)
 (* new line tests *)
 let basic_new_line_test _ =
-  let input_string = "if\nif" in
-  let expected_tokens =
-    generate_token_list [(If, "if", 1); (If, "if", 2); (EOF, "", 2)]
-  in
-  let tokens = Result.get_ok (scan_tokens input_string) in
-  token_list_assert_equal expected_tokens tokens
+  run_scanner_test "if\nif" [(If, "if", 1); (If, "if", 2); (EOF, "", 2)]
+
+let string_new_line_test _ =
+  run_scanner_test "if\"ab\ncd\"if"
+    [ (If, "if", 1)
+    ; (String "ab\ncd", "\"ab\ncd\"", 2)
+    ; (If, "if", 2)
+    ; (EOF, "", 2) ]
 
 let new_line_suite =
-  "NewLineSuite" >::: ["BasiceNewlineTest" >:: basic_new_line_test]
+  "NewLineSuite"
+  >::: [ "BasiceNewlineTest" >:: basic_new_line_test
+       ; "StringNewLineTest" >:: string_new_line_test ]
+
+(* literals tests *)
+let integer_tests =
+  "IntegerLiteral"
+  >::: List.map
+         (fun (to_lex, exp) ->
+           let title = Printf.sprintf "Lexing:'%s'->%f" to_lex exp in
+           title
+           >:: fun _ ->
+           run_scanner_test to_lex [(Number exp, to_lex, 1); (EOF, "", 1)])
+         [("1.0", 1.0); ("34.0", 34.0); ("123.456", 123.456)]
+
+let string_tests =
+  "StringLiteral"
+  >::: List.map
+         (fun to_lex ->
+           let title = Printf.sprintf "Lexing:'%s'" to_lex in
+           title
+           >:: fun _ ->
+           run_scanner_test to_lex
+             [ ( String (String.sub to_lex 1 (String.length to_lex - 2))
+               , to_lex
+               , 1 )
+             ; (EOF, "", 1) ])
+         ["\"hello world\""; "\"\""; "\"if\""]
+
+let literals_test_suite = "LiteralsTestSuite" >::: [integer_tests; string_tests]
 
 (* full test suit and run function *)
-let full_suite = "ScannerTests" >::: [new_line_suite]
+let full_suite = "ScannerTests" >::: [new_line_suite; literals_test_suite]
 
 let () = run_test_tt_main full_suite
