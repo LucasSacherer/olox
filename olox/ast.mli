@@ -32,4 +32,4 @@ val string_of_expression : expression -> string
 
 val string_of_statement : statement -> string
 
-val print_stmt_list : statement list -> unit
+val string_of_stmt_list : statement list -> string

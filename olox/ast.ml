@@ -124,9 +124,12 @@ let rec string_of_statement stmt =
         ; string_of_statement stmt.body
         ; ")" ] )
 
-let rec print_stmt_list = function
-  | [] ->
-      ()
-  | stmt :: rest ->
-      print_endline (string_of_statement stmt) ;
-      print_stmt_list rest
+let string_of_stmt_list stmt_list =
+  let rec loop stmt_list acc =
+    match stmt_list with
+    | [] ->
+        String.concat ";" (List.rev acc)
+    | head :: rest ->
+        loop rest (string_of_statement head :: acc)
+  in
+  loop stmt_list []

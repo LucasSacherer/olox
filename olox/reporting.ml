@@ -1,16 +1,21 @@
 type error_record = {line: int; where: string; message: string}
 
-(* prints out a list of error_record types, also exits the program *)
+let string_of_error_record record =
+  Printf.sprintf "[Line %i] Error%s: %s" record.line record.where record.message
+
 let rec print_error_list = function
   | error :: rest ->
-      print_endline
-        (String.concat ""
-           [ "[Line "
-           ; string_of_int error.line
-           ; "] Error"
-           ; error.where
-           ; ": "
-           ; error.message ]) ;
+      print_endline (string_of_error_record error) ;
       print_error_list rest
   | [] ->
       ()
+
+let string_of_error_list error_list =
+  let rec loop error_list acc =
+    match error_list with
+    | [] ->
+        String.concat ";" (List.rev acc)
+    | head :: rest ->
+        loop rest (string_of_error_record head :: acc)
+  in
+  loop error_list []
