@@ -38,91 +38,67 @@ type statement =
   | WhileStmt of {condition: expression; body: statement}
   | FuncStmt of {name: Token.token; params: Token.token list; body: statement}
 
-let rec string_of_expression expr =
-  String.concat " "
-    ( match expr with
-    | Assign assi ->
-        [ "("
-        ; "assign var '"
-        ; assi.name.lexeme
-        ; "' = "
-        ; string_of_expression assi.expr
-        ; ")" ]
-    | Binary bin ->
-        [ "("
-        ; string_of_expression bin.left
-        ; bin.operator.lexeme
-        ; string_of_expression bin.right
-        ; ")" ]
-    | Call call ->
-        [ "( calle:"
-        ; string_of_expression call.callee
-        ; " with args: "
-        ; String.concat ", " (List.map string_of_expression call.arguments)
-        ; ")" ]
-    | Logical log ->
-        [ "("
-        ; string_of_expression log.left
-        ; log.operator.lexeme
-        ; string_of_expression log.right
-        ; ")" ]
-    | Grouping grp ->
-        ["("; "group"; string_of_expression grp.expr; ")"]
-    | Unary un ->
-        ["("; un.operator.lexeme; string_of_expression un.right; ")"]
-    | Literal lit ->
-        [string_of_literal lit]
-    | Variable var ->
-        ["("; "variable '"; var.name.lexeme; "')"] )
+let rec string_of_expression = function
+  | Assign assi ->
+      sprintf "(assign var '%s' = %s)" assi.name.lexeme
+        (string_of_expression assi.expr)
+  | Binary bin ->
+      sprintf "(%s %s %s)"
+        (string_of_expression bin.left)
+        bin.operator.lexeme
+        (string_of_expression bin.right)
+  | Call call ->
+      sprintf "(calle: %s with args: %s)"
+        (string_of_expression call.callee)
+        (String.concat ", " (List.map string_of_expression call.arguments))
+  | Logical log ->
+      sprintf "(%s %s %s)"
+        (string_of_expression log.left)
+        log.operator.lexeme
+        (string_of_expression log.right)
+  | Grouping grp ->
+      sprintf "(group %s)" (string_of_expression grp.expr)
+  | Unary un ->
+      sprintf "(%s %s)" un.operator.lexeme (string_of_expression un.right)
+  | Literal lit ->
+      string_of_literal lit
+  | Variable var ->
+      sprintf "(variable '%s')" var.name.lexeme
 
 let rec string_of_statement stmt =
-  String.concat " "
-    ( match stmt with
-    | Statement stmt ->
-        ["Statement:("; string_of_expression stmt.expr; ")"]
-    | PrintStmt stmt ->
-        ["Print:("; string_of_expression stmt.expr; ")"]
-    | VarStmt stmt ->
-        [ "Var:("
-        ; stmt.name.lexeme
-        ; " = "
-        ; ( match stmt.init with
-          | Some expr ->
-              string_of_expression expr
-          | None ->
-              "<no init>" )
-        ; ")" ]
-    | BlockStmt stmt_list ->
-        [ "Block:("
-        ; String.concat ", " (List.map string_of_statement stmt_list)
-        ; ")" ]
-    | IfStmt stmt ->
-        [ "If:(cond: "
-        ; string_of_expression stmt.condition
-        ; " then: "
-        ; string_of_statement stmt.then_branch
-        ; " else: "
-        ; ( match stmt.else_branch with
-          | None ->
-              "None"
-          | Some else_stmt ->
-              string_of_statement else_stmt )
-        ; ")" ]
-    | WhileStmt stmt ->
-        [ "If:(cond: "
-        ; string_of_expression stmt.condition
-        ; " body: "
-        ; string_of_statement stmt.body
-        ; ")" ]
-    | FuncStmt stmt ->
-        [ "Function:(name: "
-        ; stmt.name.lexeme
-        ; " args: "
-        ; String.concat ", "
-            (List.map (fun tok -> tok.Token.lexeme) stmt.params)
-        ; " body: "
-        ; string_of_statement stmt.body
-        ; ")" ] )
+  match stmt with
+  | Statement stmt ->
+      sprintf "Statement:(%s)" (string_of_expression stmt.expr)
+  | PrintStmt stmt ->
+      sprintf "Print:(%s)" (string_of_expression stmt.expr)
+  | VarStmt stmt ->
+      sprintf "Var:(%s = %s)" stmt.name.lexeme
+        ( match stmt.init with
+        | Some expr ->
+            string_of_expression expr
+        | None ->
+            "<no init>" )
+  | BlockStmt stmt_list ->
+      sprintf "Block:(%s)"
+        (String.concat ", " (List.map string_of_statement stmt_list))
+  | IfStmt stmt ->
+      sprintf "If:(cond:%s then:%s else:%s)"
+        (string_of_expression stmt.condition)
+        (string_of_statement stmt.then_branch)
+        ( match stmt.else_branch with
+        | None ->
+            "None"
+        | Some else_stmt ->
+            string_of_statement else_stmt )
+  | WhileStmt stmt ->
+      sprintf "While:(cond:%s body:%s)"
+        (string_of_expression stmt.condition)
+        (string_of_statement stmt.body)
+  | FuncStmt stmt ->
+      sprintf "Function:(name:%s args%s body%s)" stmt.name.lexeme
+        (String.concat ", "
+           (List.map (fun tok -> tok.Token.lexeme) stmt.params))
+        (string_of_statement stmt.body)
 
 let string_of_stmt_list stmt_list =
   let rec loop stmt_list acc =

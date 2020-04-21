@@ -1,5 +1,6 @@
 open Reporting
 open Token
+open Printf
 
 (*** Keyword Hashtable ***)
 let keywords = Hashtbl.create 20
@@ -247,10 +248,7 @@ let rec scan_token str pos =
         , Error
             { line= next_pos.line
             ; where= ""
-            ; message=
-                String.concat ""
-                  ["Unexpected character: '"; String.make 1 next_char; "'"] } )
-    )
+            ; message= sprintf "Unexpected character: '%c'" next_char } ) )
 
 let rec scan_tokens_aux str pos acc error_acc =
   let new_pos, new_tok = scan_token str pos in

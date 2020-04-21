@@ -1,3 +1,5 @@
+open Printf
+
 type token_type =
   (* single char tokens *)
   | LeftParen
@@ -129,32 +131,15 @@ let get_token_name = function
 
 type token = {token_type: token_type; lexeme: string; line: int}
 
-let print_token token =
-  print_endline
-    (String.concat " " [get_token_name token.token_type; token.lexeme])
-
-let rec print_token_list = function
-  | token :: rest ->
-      print_token token ; print_token_list rest
-  | [] ->
-      ()
-
 let string_of_token token =
-  String.concat ""
-    [ get_token_name token.token_type
-    ; "<"
-    ; token.lexeme
-    ; ":"
-    ; string_of_int token.line
-    ; ">" ]
+  sprintf "%s<%s:%s>"
+    (get_token_name token.token_type)
+    token.lexeme (string_of_int token.line)
 
 let string_of_token_list tokens =
-  let rec loop tokens acc =
-    match tokens with
-    | [] ->
-        acc
-    | head :: rest ->
-        let token_string = string_of_token head in
-        loop rest (String.concat " " [acc; token_string])
-  in
-  loop tokens ""
+  String.concat " " (List.map string_of_token tokens)
+
+let print_token token = print_endline (string_of_token token)
+
+let print_token_list tokens =
+  List.iter print_endline (List.map string_of_token tokens)
