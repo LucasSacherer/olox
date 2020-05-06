@@ -72,6 +72,30 @@ let string_tests =
 
 let literals_test_suite = "LiteralsTestSuite" >::: [integer_tests; string_tests]
 
+(* statement tests *)
+let while_stmt_test _ =
+  run_scanner_test "while (x > 2) {x = x - 1; print x;}"
+    [ (While, "while", 1)
+    ; (LeftParen, "(", 1)
+    ; (Identifier, "x", 1)
+    ; (Greater, ">", 1)
+    ; (RightParen, ")", 1)
+    ; (LeftBrace, "{", 1)
+    ; (Identifier, "x", 1)
+    ; (Equal, "=", 1)
+    ; (Identifier, "x", 1)
+    ; (Minus, "-", 1)
+    ; (Number 1.0, "1", 1)
+    ; (Semicolon, ";", 1)
+    ; (Print, "print", 1)
+    ; (Identifier, "x", 1)
+    ; (Semicolon, ";", 1)
+    ; (RightBrace, "}", 1)
+    ; (EOF, "", 1) ]
+
+let statement_test_suite =
+  "StatementSuite" >::: ["WhileStmt" >:: while_stmt_test]
+
 (* full test suit and run function *)
 let full_suite = "ScannerTests" >::: [new_line_suite; literals_test_suite]
 

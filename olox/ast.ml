@@ -43,7 +43,7 @@ let rec string_of_expression = function
       sprintf "(assign var '%s' = %s)" assi.name.lexeme
         (string_of_expression assi.expr)
   | Binary bin ->
-      sprintf "(%s %s %s)"
+      sprintf "(<bin> %s %s %s)"
         (string_of_expression bin.left)
         bin.operator.lexeme
         (string_of_expression bin.right)
@@ -52,7 +52,7 @@ let rec string_of_expression = function
         (string_of_expression call.callee)
         (String.concat ", " (List.map string_of_expression call.arguments))
   | Logical log ->
-      sprintf "(%s %s %s)"
+      sprintf "(<log> %s %s %s)"
         (string_of_expression log.left)
         log.operator.lexeme
         (string_of_expression log.right)
