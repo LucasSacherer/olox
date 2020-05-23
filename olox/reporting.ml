@@ -1,5 +1,7 @@
 type error_record = {line: int; where: string; message: string}
 
+let create_error ~line ~where ~message = {line; where; message}
+
 let string_of_error_record record =
   Printf.sprintf "[Line %i] Error%s: %s" record.line record.where record.message
 

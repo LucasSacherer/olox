@@ -15,8 +15,7 @@ let generate_error_list specs =
         List.rev acc
     | head :: rest ->
         let line, where, message = head in
-        let new_error = {line; where; message} in
-        loop rest (new_error :: acc)
+        loop rest (create_error ~line ~where ~message :: acc)
   in
   loop specs []
 

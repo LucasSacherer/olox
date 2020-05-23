@@ -83,8 +83,9 @@ let rec scan_string str start_pos =
   match try_peek str start_pos with
   | None ->
       ( start_pos
-      , Error {line= start_pos.line; where= ""; message= "Unterminated string."}
-      )
+      , Error
+          (create_error ~line:start_pos.line ~where:""
+             ~message:"Unterminated string.") )
   | Some next_char -> (
     match next_char with
     | '"' ->
@@ -246,9 +247,8 @@ let rec scan_token str pos =
     | _ ->
         ( next_pos
         , Error
-            { line= next_pos.line
-            ; where= ""
-            ; message= sprintf "Unexpected character: '%c'" next_char } ) )
+            (create_error ~line:next_pos.line ~where:""
+               ~message:(sprintf "Unexpected character: '%c'" next_char)) ) )
 
 let rec scan_tokens_aux str pos acc error_acc =
   let new_pos, new_tok = scan_token str pos in

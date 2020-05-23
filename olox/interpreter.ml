@@ -10,12 +10,12 @@ let check_binary_float (operator : Token.token) left_val right_val =
       Ok (left_fl, right_fl)
   | (_ as left_val), right_val ->
       Error
-        [ { line= operator.line
-          ; where= sprintf " right of '%s'" operator.lexeme
-          ; message=
-              sprintf "Expected Floats, got %s and %s"
-                (string_of_value left_val)
-                (string_of_value right_val) } ]
+        [ create_error ~line:operator.line
+            ~where:(sprintf " right of '%s'" operator.lexeme)
+            ~message:
+              (sprintf "Expected Floats, got %s and %s"
+                 (string_of_value left_val)
+                 (string_of_value right_val)) ]
 
 let tuple_operation tuple_op tuple =
   let left, right = tuple in
@@ -173,9 +173,8 @@ and interpret_expression expr env =
         Ok (value, env)
     | None ->
         Error
-          [ { line= var.name.line
-            ; where= ""
-            ; message= sprintf "No variable called '%s'" var.name.lexeme } ] )
+          [ create_error ~line:var.name.line ~where:""
+              ~message:(sprintf "No variable called '%s'" var.name.lexeme) ] )
   | Assign assi -> (
     match interpret_expression assi.expr env with
     | Error err ->
@@ -184,11 +183,10 @@ and interpret_expression expr env =
       match Environ.assign new_env assi.name.lexeme set_val with
       | None ->
           Error
-            [ { line= assi.name.line
-              ; where= ""
-              ; message=
-                  sprintf "Can't assign to undeclared variable '%s'"
-                    assi.name.lexeme } ]
+            [ create_error ~line:assi.name.line ~where:""
+                ~message:
+                  (sprintf "Can't assign to undeclared variable '%s'"
+                     assi.name.lexeme) ]
       | Some final_env ->
           Ok (set_val, final_env) ) )
   | Logical log ->
@@ -217,19 +215,17 @@ and interpret_unary operator right_expr env =
           Ok (FloatValue (Float.sub 0.0 fl), new_env)
       | _ ->
           Error
-            [ { line= operator.line
-              ; where= ""
-              ; message=
-                  sprintf "Expected Float, got %s" (string_of_value value) } ] )
+            [ create_error ~line:operator.line ~where:""
+                ~message:
+                  (sprintf "Expected Float, got %s" (string_of_value value)) ] )
     | Token.Bang ->
         let b_value = is_truthy value in
         Ok (BoolValue (Bool.not b_value), new_env)
     | _ ->
         Error
-          [ { line= operator.line
-            ; where= ""
-            ; message= sprintf "Unexpected unary operator: %s" operator.lexeme
-            } ]
+          [ create_error ~line:operator.line ~where:""
+              ~message:(sprintf "Unexpected unary operator: %s" operator.lexeme)
+          ]
   in
   let right_value_res = interpret_expression right_expr env in
   Result.bind right_value_res interpret_helper
@@ -260,10 +256,9 @@ and interpret_binary left_expr operator right_expr env =
         interpret_binary_plus operator left_val right_val env
     | _ ->
         Error
-          [ { line= operator.line
-            ; where= ""
-            ; message= sprintf "Unexpected binary operator: %s" operator.lexeme
-            } ]
+          [ create_error ~line:operator.line ~where:""
+              ~message:
+                (sprintf "Unexpected binary operator: %s" operator.lexeme) ]
   in
   match interpret_expression left_expr env with
   | Error err ->
@@ -299,12 +294,11 @@ and interpret_binary_plus operator left_val right_val env =
       Ok (StringValue (string_add (left_str, right_str)), env)
   | (_ as left_val), right_val ->
       Error
-        [ { line= operator.line
-          ; where= ""
-          ; message=
-              sprintf "Expected either strings or floats, got: %s + %s"
-                (string_of_value left_val)
-                (string_of_value right_val) } ]
+        [ create_error ~line:operator.line ~where:""
+            ~message:
+              (sprintf "Expected either strings or floats, got: %s + %s"
+                 (string_of_value left_val)
+                 (string_of_value right_val)) ]
 
 and interpret_logical operator left_exp right_expr env =
   let left_res = interpret_expression left_exp env in
@@ -348,11 +342,10 @@ and interpret_call callee left_paren arguments env =
           | FunctionValue func -> (
               if func.arity != List.length call_args then
                 Error
-                  [ { line= left_paren.line
-                    ; where= ""
-                    ; message=
-                        sprintf "Expected %i arguments, got %i" func.arity
-                          (List.length call_args) } ]
+                  [ create_error ~line:left_paren.line ~where:""
+                      ~message:
+                        (sprintf "Expected %i arguments, got %i" func.arity
+                           (List.length call_args)) ]
               else
                 match func.to_call call_args (get_global args_env) with
                 | Error error ->
@@ -361,11 +354,10 @@ and interpret_call callee left_paren arguments env =
                     Ok (call_val, apply_global args_env new_global) )
           | _ ->
               Error
-                [ { line= left_paren.line
-                  ; where= ""
-                  ; message=
-                      sprintf "Can only call functions and classes, got %s"
-                        (string_of_value callee_val) } ] ) )
+                [ create_error ~line:left_paren.line ~where:""
+                    ~message:
+                      (sprintf "Can only call functions and classes, got %s"
+                         (string_of_value callee_val)) ] ) )
 
 let rec interpret env stmt_list =
   match stmt_list with

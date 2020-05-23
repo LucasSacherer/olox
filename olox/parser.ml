@@ -547,18 +547,19 @@ let rec parse prev_stmts prev_errors tokens =
         match tokens with
         | [] ->
             parse prev_stmts
-              ({line= -1; where= " at end"; message} :: prev_errors)
+              (create_error ~line:~-1 ~where:" at end" ~message :: prev_errors)
               []
         | head :: _ -> (
           match head.token_type with
           | EOF ->
               parse prev_stmts
-                ({line= head.line; where= " at end"; message} :: prev_errors)
+                ( create_error ~line:head.line ~where:" at end" ~message
+                :: prev_errors )
                 []
           | _ ->
               parse prev_stmts
-                ( { line= head.line
-                  ; where= sprintf " at '%s'" head.lexeme
-                  ; message }
+                ( create_error ~line:head.line
+                    ~where:(sprintf " at '%s'" head.lexeme)
+                    ~message
                 :: prev_errors )
                 (synchronize tokens) ) ) ) )
