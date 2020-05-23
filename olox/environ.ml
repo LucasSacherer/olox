@@ -107,11 +107,24 @@ let contains env name =
         false )
 
 let assign env name value =
-  match contains env name with
-  | false ->
-      None
-  | true ->
-      Some (define env name value)
+  if not (contains env name) then None
+  else
+    (* peel context until we find the one with the definition *)
+    let scope_env, global_env = env in
+    let rec assign_loop prev rest =
+      match rest with
+      | [] ->
+          Some (prev, StringMap.add name value global_env)
+      | top_scope :: rest -> (
+        match StringMap.find_opt name top_scope with
+        | Some _ ->
+            let new_top_scope = StringMap.add name value top_scope in
+            let new_scope_env = List.append prev (new_top_scope :: rest) in
+            Some (new_scope_env, global_env)
+        | None ->
+            assign_loop (List.append prev [top_scope]) rest )
+    in
+    assign_loop [] scope_env
 
 let push_env env =
   let scope_env, global_env = env in

@@ -48,7 +48,14 @@ let basic_tests_suite =
          ; ("GreaterThanTrue", "4 > 3;", BoolValue true)
          ; ("LessThanFalse", "4 < 3;", BoolValue false)
          ; ("LessThanTrue", "3 < 4;", BoolValue true)
-         ; ("SubstractInPlace", "var a = 3; a = a - 1; a;", FloatValue 2.0) ]
+         ; ("SubstractInPlace", "var a = 3; a = a - 1; a;", FloatValue 2.0)
+         ; ("SetInScope", "var a = 1; { a = 20; } a;", FloatValue 20.0)
+         ; ( "WhileLoop"
+           , "var a = 0; while (a < 10) { a = a + 1; } a;"
+           , FloatValue 10.0 )
+         ; ( "ReverseWhileLoop"
+           , "var a = 10; while (a > 0) { a = a - 1; } a;"
+           , FloatValue 0.0 ) ]
 
 let basic_error_tests_suite =
   "ErrorSuite"
