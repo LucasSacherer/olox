@@ -5,6 +5,15 @@ open Printf
 
 exception Parser_Error of string * token list
 
+(* Helper functions for parsing *)
+
+(* Generates a function that parses a left associative operator. operators is the list
+ * of token_types at this precedence level and to_call is the function to call to parse
+ * the next level of precedence. This function keeps parsing as long as it finds operators
+ * that match its operator list and uses to_call to parse the right hand side of any
+ * operation. In practice (as long as the function is used correctly) this allows a single
+ * top level call to the generated function to parse an arbitrarily large arithmatic/logic
+ * expression. See usage bellow for an example. *)
 let parse_left_binary operators to_call =
   let rec parse_aux tokens expr =
     match tokens with
@@ -21,6 +30,19 @@ let parse_left_binary operators to_call =
   in
   parse_aux
 
+(* Parses a single token of a given token_type. Returns the token and the rest of the toke
+ * list. Throws an error if the list is empty or if the first token in the list is not of
+ * the correct type. *)
+let parse_one_token token_type message tokens =
+  match tokens with
+  | [] ->
+      raise (Parser_Error (message, []))
+  | head :: rest ->
+      if head.token_type == token_type then (head, rest)
+      else raise (Parser_Error (message, rest))
+
+(* Creates a fuction that makes sure that the next token is a semicolon.
+ * If it is, make the callback. This is used at the end of parsing statements. *)
 let parse_gen_stmt to_call =
   let parse_stmt_aux expr tokens =
     match tokens with
@@ -35,6 +57,7 @@ let parse_gen_stmt to_call =
   in
   parse_stmt_aux
 
+(* Desugars a for loop into a block statement containing a while loop. *)
 let generate_for_loop init_stmt_opt cond_expr_opt inc_expr_opt body_stmt =
   let final_body =
     match inc_expr_opt with
@@ -59,6 +82,10 @@ let generate_for_loop init_stmt_opt cond_expr_opt inc_expr_opt body_stmt =
   in
   final_stmt
 
+(**************************************
+ * Start of the parser.
+ **************************************)
+
 type func_type = Function (*| Method*)
 
 let rec parse_decl tokens =
@@ -75,110 +102,74 @@ let rec parse_decl tokens =
         parse_stmt tokens )
 
 and parse_function tokens _ (* func_type *) =
-  match tokens with
-  | [] ->
-      raise (Parser_Error ("Expected name to start function decleration!", []))
-  | head :: rest -> (
-      let name =
-        match head.token_type with
-        | Identifier ->
-            head
-        | _ ->
-            raise (Parser_Error ("Expected ident for function name!", rest))
-      in
-      let rec parse_params tokens acc =
-        match tokens with
-        | [] ->
-            raise (Parser_Error ("Expected ')' after paramters!", []))
-        | head :: rest -> (
-          match head.token_type with
-          | RightParen ->
-              (List.rev acc, rest)
-          | Identifier -> (
-              let new_params = head :: acc in
-              match rest with
-              | [] ->
-                  raise
-                    (Parser_Error ("Expected ')' or ',' in parameter list!", []))
-              | head :: other_rest -> (
-                match head.token_type with
-                | Comma ->
-                    parse_params other_rest new_params
-                | RightParen ->
-                    parse_params rest new_params
-                | _ ->
-                    raise
-                      (Parser_Error
-                         ("Expected ')' or ',' in paramater list!", other_rest))
-                ) )
-          | _ ->
+  let name, rest =
+    parse_one_token Identifier "Expected name to start function decleration!"
+      tokens
+  in
+  let rec parse_params tokens acc =
+    match tokens with
+    | [] ->
+        raise (Parser_Error ("Expected ')' after paramters!", []))
+    | head :: rest -> (
+      match head.token_type with
+      | RightParen ->
+          (List.rev acc, rest)
+      | Identifier -> (
+          let new_params = head :: acc in
+          match rest with
+          | [] ->
               raise
-                (Parser_Error ("Expected ')' or another parameter name!", rest))
-          )
-      in
-      match rest with
-      | [] ->
-          raise (Parser_Error ("Expected paramters after function name!", []))
-      | head :: rest -> (
-        match head.token_type with
-        | LeftParen -> (
-            let params, other_toks = parse_params rest [] in
-            match other_toks with
-            | [] ->
+                (Parser_Error ("Expected ')' or ',' in parameter list!", []))
+          | head :: other_rest -> (
+            match head.token_type with
+            | Comma ->
+                parse_params other_rest new_params
+            | RightParen ->
+                parse_params rest new_params
+            | _ ->
                 raise
-                  (Parser_Error ("Expected function body after parameters!", []))
-            | head :: rest -> (
-              match head.token_type with
-              | LeftBrace ->
-                  let body, remain_tokens = parse_block_stmt rest in
-                  (FuncStmt {name; params; body}, remain_tokens)
-              | _ ->
-                  raise
-                    (Parser_Error ("Expected '{' to start function body!", rest))
-              ) )
-        | _ ->
-            raise (Parser_Error ("Expected '(' after function name!", rest)) ) )
+                  (Parser_Error
+                     ("Expected ')' or ',' in paramater list!", other_rest)) ) )
+      | _ ->
+          raise (Parser_Error ("Expected ')' or another parameter name!", rest))
+      )
+  in
+  let _, rest =
+    parse_one_token LeftParen "Expected '(' after function name!" rest
+  in
+  let params, rest = parse_params rest [] in
+  let _, rest =
+    parse_one_token LeftBrace "Expected '{' to start function body!" rest
+  in
+  let body, remain_tokens = parse_block_stmt rest in
+  (FuncStmt {name; params; body}, remain_tokens)
 
 and parse_var_decl tokens =
-  match tokens with
+  let name, rest =
+    parse_one_token Identifier "Expected identifier after var!" tokens
+  in
+  match rest with
   | [] ->
-      raise (Parser_Error ("Empty var decleration!", tokens))
+      raise (Parser_Error ("Expected a ';' or an initializer!", rest))
   | head :: rest -> (
-      let name =
+      let init, rest =
         match head.token_type with
-        | Identifier ->
-            head
+        | Equal ->
+            let expr, expr_rest = parse_expression rest in
+            (Some expr, expr_rest)
+        | Semicolon ->
+            (None, rest)
         | _ ->
-            raise (Parser_Error ("Expected identifier after var!", rest))
+            raise (Parser_Error ("Expected ';' or '=' after value!", rest))
       in
-      match rest with
-      | [] ->
-          raise (Parser_Error ("Expected a ';' or an initializer!", rest))
-      | head :: rest -> (
-          let init, rest =
-            match head.token_type with
-            | Equal ->
-                let expr, expr_rest = parse_expression rest in
-                (Some expr, expr_rest)
-            | Semicolon ->
-                (None, rest)
-            | _ ->
-                raise (Parser_Error ("Expected ';' or '=' after value!", rest))
+      match init with
+      | None ->
+          (VarStmt {name; init= None}, rest)
+      | _ ->
+          let _, rest =
+            parse_one_token Semicolon "Expected ';' after value!" rest
           in
-          match init with
-          | None ->
-              (VarStmt {name; init= None}, rest)
-          | _ -> (
-            match rest with
-            | [] ->
-                raise (Parser_Error ("Expected ';' after value!", rest))
-            | head :: rest -> (
-              match head.token_type with
-              | Semicolon ->
-                  (VarStmt {name; init}, rest)
-              | _ ->
-                  raise (Parser_Error ("Expected ';' after value!", rest)) ) ) )
-      )
+          (VarStmt {name; init}, rest) )
 
 and parse_stmt tokens =
   match tokens with
@@ -219,142 +210,91 @@ and parse_block_stmt tokens =
   parse_next_stmt tokens []
 
 and parse_if_stmt tokens =
-  match tokens with
+  let _, rest = parse_one_token LeftParen "Expected '(' after 'if'!" tokens in
+  let condition, rest = parse_expression rest in
+  let _, rest =
+    parse_one_token RightParen "Expected ')' after 'if' condition!" rest
+  in
+  let then_branch, tokens_after_then = parse_stmt rest in
+  match tokens_after_then with
   | [] ->
-      raise (Parser_Error ("Reached EOF after 'if'!", []))
+      (IfStmt {condition; then_branch; else_branch= None}, [])
   | head :: rest -> (
     match head.token_type with
-    | LeftParen -> (
-        let condition, tokens_1 = parse_expression rest in
-        match tokens_1 with
-        | [] ->
-            raise (Parser_Error ("Reached EOF after 'if' condition!", []))
-        | head :: rest -> (
-          match head.token_type with
-          | RightParen -> (
-              let then_branch, tokens_2 = parse_stmt rest in
-              match tokens_2 with
-              | [] ->
-                  (IfStmt {condition; then_branch; else_branch= None}, [])
-              | head :: rest -> (
-                match head.token_type with
-                | Else ->
-                    let else_branch, tokens_3 = parse_stmt rest in
-                    ( IfStmt
-                        {condition; then_branch; else_branch= Some else_branch}
-                    , tokens_3 )
-                | _ ->
-                    ( IfStmt {condition; then_branch; else_branch= None}
-                    , tokens_2 ) ) )
-          | _ ->
-              raise (Parser_Error ("Expect ')' after if condition!", [])) ) )
+    | Else ->
+        let else_branch, tokens_after_else = parse_stmt rest in
+        ( IfStmt {condition; then_branch; else_branch= Some else_branch}
+        , tokens_after_else )
     | _ ->
-        raise (Parser_Error ("Expect '(' after 'if'!", rest)) )
+        (IfStmt {condition; then_branch; else_branch= None}, tokens_after_then)
+    )
 
 and parse_while_stmt tokens =
-  match tokens with
-  | [] ->
-      raise (Parser_Error ("Expect '(' after 'while'!", []))
-  | head :: rest -> (
-    match head.token_type with
-    | LeftParen -> (
-        let condition, after_cond_tokens = parse_expression rest in
-        match after_cond_tokens with
-        | [] ->
-            raise (Parser_Error ("Expect ')' after condition!", []))
-        | head :: tail -> (
-          match head.token_type with
-          | RightParen ->
-              let body, final_tokens = parse_stmt tail in
-              (WhileStmt {condition; body}, final_tokens)
-          | _ ->
-              raise (Parser_Error ("Expect ')' after condition!", [])) ) )
-    | _ ->
-        raise (Parser_Error ("Expect '(' after 'while'!", [])) )
+  let _, rest = parse_one_token LeftParen "Expect '(' after 'while'!" tokens in
+  let condition, rest = parse_expression rest in
+  let _, rest =
+    parse_one_token RightParen "Expect ')' after 'while' condition!" rest
+  in
+  let body, rest = parse_stmt rest in
+  (WhileStmt {condition; body}, rest)
 
 and parse_for_stmt tokens =
-  match tokens with
+  let _, rest = parse_one_token LeftParen "Expected '(' after 'for'!" tokens in
+  match rest with
   | [] ->
-      raise (Parser_Error ("Expected '(' after 'for'!", []))
+      raise (Parser_Error ("Expected ';' or initialize stmt!", []))
   | head :: rest -> (
-    match head.token_type with
-    | LeftParen -> (
-      match rest with
+      let init_stmt_opt, remain_tokens =
+        match head.token_type with
+        | Semicolon ->
+            (None, rest)
+        | Var ->
+            let var_stmt, rest = parse_var_decl rest in
+            (Some var_stmt, rest)
+        | _ ->
+            let expr_stmt, rest = parse_expr_stmt rest in
+            (Some expr_stmt, rest)
+      in
+      match remain_tokens with
       | [] ->
-          raise (Parser_Error ("Expected ';' or initialize stmt!", []))
+          raise
+            (Parser_Error
+               ( "Expected ';' or condition after initialize stmt of 'while'!"
+               , [] ))
       | head :: rest -> (
-          let init_stmt_opt, remain_tokens =
+          let cond_expr_opt, remain_tokens =
             match head.token_type with
             | Semicolon ->
                 (None, rest)
-            | Var ->
-                let var_stmt, rest = parse_var_decl rest in
-                (Some var_stmt, rest)
             | _ ->
-                let expr_stmt, rest = parse_expr_stmt rest in
-                (Some expr_stmt, rest)
+                let expr, rest = parse_expression remain_tokens in
+                let _, rest =
+                  parse_one_token Semicolon "Expected ';' after loop condition!"
+                    rest
+                in
+                (Some expr, rest)
           in
           match remain_tokens with
           | [] ->
               raise
-                (Parser_Error
-                   ( "Expected ';' or condition after initialize stmt of \
-                      'while'!"
-                   , [] ))
-          | head :: rest -> (
-              let cond_expr_opt, remain_tokens =
+                (Parser_Error ("Expected ')' or increment stmt after init!", []))
+          | head :: rest ->
+              let inc_expr_opt, remain_tokens =
                 match head.token_type with
-                | Semicolon ->
+                | RightParen ->
                     (None, rest)
-                | _ -> (
+                | _ ->
                     let expr, rest = parse_expression remain_tokens in
-                    match rest with
-                    | [] ->
-                        raise
-                          (Parser_Error
-                             ("Expected ';' after loop condition!", []))
-                    | head :: rest -> (
-                      match head.token_type with
-                      | Semicolon ->
-                          (Some expr, rest)
-                      | _ ->
-                          raise
-                            (Parser_Error
-                               ("Expected ';' after loop condition!", rest)) ) )
+                    let _, rest =
+                      parse_one_token RightParen
+                        "Expected ')' after 'for' clauses!" rest
+                    in
+                    (Some expr, rest)
               in
-              match remain_tokens with
-              | [] ->
-                  raise
-                    (Parser_Error
-                       ("Expected ')' or increment stmt after init!", []))
-              | head :: rest ->
-                  let inc_expr_opt, remain_tokens =
-                    match head.token_type with
-                    | RightParen ->
-                        (None, rest)
-                    | _ -> (
-                        let expr, rest = parse_expression remain_tokens in
-                        match rest with
-                        | [] ->
-                            raise
-                              (Parser_Error
-                                 ("Expected ')' after for clauses!", []))
-                        | head :: rest -> (
-                          match head.token_type with
-                          | RightParen ->
-                              (Some expr, rest)
-                          | _ ->
-                              raise
-                                (Parser_Error
-                                   ("Expected ')' after for clauses!", rest)) )
-                        )
-                  in
-                  let body_stmt, remain_tokens = parse_stmt remain_tokens in
-                  ( generate_for_loop init_stmt_opt cond_expr_opt inc_expr_opt
-                      body_stmt
-                  , remain_tokens ) ) ) )
-    | _ ->
-        raise (Parser_Error ("Expected '(' after 'for'!", rest)) )
+              let body_stmt, remain_tokens = parse_stmt remain_tokens in
+              ( generate_for_loop init_stmt_opt cond_expr_opt inc_expr_opt
+                  body_stmt
+              , remain_tokens ) ) )
 
 and parse_expr_stmt tokens =
   let new_expr, rest = parse_expression tokens in
@@ -503,17 +443,12 @@ and parse_primary tokens =
         (Literal (StringLiteral str), rest)
     | Identifier ->
         (Variable {name= head}, rest)
-    | LeftParen -> (
+    | LeftParen ->
         let next_expr, rest = parse_expression rest in
-        match rest with
-        | [] ->
-            raise (Parser_Error ("Expected expression after '('", rest))
-        | head :: rest -> (
-          match head.token_type with
-          | RightParen ->
-              (Grouping {expr= next_expr}, rest)
-          | _ ->
-              raise (Parser_Error ("Expected ')' after expression", rest)) ) )
+        let _, rest =
+          parse_one_token RightParen "Expected ')' after expression!" rest
+        in
+        (Grouping {expr= next_expr}, rest)
     | _ ->
         raise (Parser_Error ("Expected literal, ident, or group", tokens)) )
 

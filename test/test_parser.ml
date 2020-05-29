@@ -33,11 +33,17 @@ let run_error_parser_test input expected =
 
 let x_token = {Olox.Token.token_type= Identifier; lexeme= "x"; line= 1}
 
+let y_token = {Olox.Token.token_type= Identifier; lexeme= "y"; line= 1}
+
+let z_token = {Olox.Token.token_type= Identifier; lexeme= "z"; line= 1}
+
 let plus_token = {Olox.Token.token_type= Plus; lexeme= "+"; line= 1}
 
 let minus_token = {Olox.Token.token_type= Minus; lexeme= "-"; line= 1}
 
 let greater_token = {Olox.Token.token_type= Greater; lexeme= ">"; line= 1}
+
+let less_token = {Olox.Token.token_type= Less; lexeme= "<"; line= 1}
 
 (* unit tests start here *)
 let basic_tests_suite =
@@ -70,7 +76,35 @@ let basic_tests_suite =
                        { left= Literal (FloatLiteral 1.0)
                        ; right= Literal (FloatLiteral 1.0)
                        ; operator= plus_token } } ] )
-         ; ( "BasicWhile"
+         ; ( "BasicFunc1"
+           , "fun x() { 1; }"
+           , [ FuncStmt
+                 { name= x_token
+                 ; params= []
+                 ; body= BlockStmt [Statement {expr= Literal (FloatLiteral 1.0)}]
+                 } ] )
+         ; ( "BasicFunc2"
+           , "fun x(y,z) { 1; }"
+           , [ FuncStmt
+                 { name= x_token
+                 ; params= [y_token; z_token]
+                 ; body= BlockStmt [Statement {expr= Literal (FloatLiteral 1.0)}]
+                 } ] )
+         ; ( "BasicVarDecl"
+           , "var x = 1.0;"
+           , [VarStmt {name= x_token; init= Some (Literal (FloatLiteral 1.0))}]
+           )
+         ; ( "BasicVarDeclNoInit"
+           , "var x;"
+           , [VarStmt {name= x_token; init= None}] ) ]
+
+let loop_tests_suite =
+  "LoopSuite"
+  >::: List.map
+         (fun (title, to_parse, exp) ->
+           let token_list = Result.get_ok (scan_tokens to_parse) in
+           title >:: fun _ -> run_parser_test token_list exp)
+         [ ( "WhileLoop"
            , "while (x > 2) {x = x - 1; print x;}"
            , [ WhileStmt
                  { condition=
@@ -89,7 +123,48 @@ let basic_tests_suite =
                                        { left= Variable {name= x_token}
                                        ; right= Literal (FloatLiteral 1.0)
                                        ; operator= minus_token } } }
-                       ; PrintStmt {expr= Variable {name= x_token}} ] } ] ) ]
+                       ; PrintStmt {expr= Variable {name= x_token}} ] } ] )
+         ; ( "ForLoopNoArgs"
+           , "for (;;) {x;}"
+           , [ WhileStmt
+                 { condition= Literal (BoolLiteral true)
+                 ; body= BlockStmt [Statement {expr= Variable {name= x_token}}]
+                 } ] )
+         ; ( "ForLoopWithDecl"
+           , "for (var x = 1.0;;) {x;}"
+           , [ BlockStmt
+                 [ VarStmt
+                     {name= x_token; init= Some (Literal (FloatLiteral 1.0))}
+                 ; WhileStmt
+                     { condition= Literal (BoolLiteral true)
+                     ; body=
+                         BlockStmt [Statement {expr= Variable {name= x_token}}]
+                     } ] ] )
+         ; ( "ForLoopFull"
+           , "for (var x = 1; x < 1.0; x = x + 1) {print x;}"
+           , [ BlockStmt
+                 [ VarStmt
+                     {name= x_token; init= Some (Literal (FloatLiteral 1.0))}
+                 ; WhileStmt
+                     { condition=
+                         Binary
+                           { left= Variable {name= x_token}
+                           ; operator= less_token
+                           ; right= Literal (FloatLiteral 1.0) }
+                     ; body=
+                         BlockStmt
+                           [ BlockStmt
+                               [PrintStmt {expr= Variable {name= x_token}}]
+                           ; Statement
+                               { expr=
+                                   Assign
+                                     { name= x_token
+                                     ; expr=
+                                         Binary
+                                           { left= Variable {name= x_token}
+                                           ; operator= plus_token
+                                           ; right= Literal (FloatLiteral 1.0)
+                                           } } } ] } ] ] ) ]
 
 let basic_error_tests_suite =
   "ErrorSuite"
@@ -98,9 +173,11 @@ let basic_error_tests_suite =
            let token_list = Result.get_ok (scan_tokens to_parse) in
            let error_list = generate_error_list exp in
            title >:: fun _ -> run_error_parser_test token_list error_list)
-         [("NoEOFIf", "if if", [(1, " at end", "Expect '(' after 'if'!")])]
+         [("NoEOFIf", "if if", [(1, " at end", "Expected '(' after 'if'!")])]
 
 (* full test suit and run function *)
-let full_suite = "ParserTests" >::: [basic_tests_suite; basic_error_tests_suite]
+let full_suite =
+  "ParserTests"
+  >::: [basic_tests_suite; basic_error_tests_suite; loop_tests_suite]
 
 let () = run_test_tt_main full_suite
