@@ -29,6 +29,7 @@ type expression =
 type statement =
   | Statement of {expr: expression}
   | PrintStmt of {expr: expression}
+  | ReturnStmt of {keyword: Token.token; expr: expression option}
   | VarStmt of {name: Token.token; init: expression option}
   | BlockStmt of statement list
   | IfStmt of
@@ -71,6 +72,12 @@ let rec string_of_statement stmt =
       sprintf "Statement:(%s)" (string_of_expression stmt.expr)
   | PrintStmt stmt ->
       sprintf "Print:(%s)" (string_of_expression stmt.expr)
+  | ReturnStmt stmt -> (
+    match stmt.expr with
+    | Some expr ->
+        sprintf "Return:(%s)" (string_of_expression expr)
+    | None ->
+        "Return:None" )
   | VarStmt stmt ->
       sprintf "Var:(%s = %s)" stmt.name.lexeme
         ( match stmt.init with

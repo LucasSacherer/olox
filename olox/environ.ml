@@ -18,10 +18,11 @@ and value =
           -> global_env
           -> (value * global_env, Reporting.error_record list) result
       ; name: string }
+  | ReturnValue of value * int
   | NilValue
 
 (* value functions *)
-let string_of_value = function
+let rec string_of_value = function
   | StringValue str ->
       sprintf "String: '%s'" str
   | FloatValue fl ->
@@ -30,10 +31,12 @@ let string_of_value = function
       sprintf "Bool: %b" bl
   | FunctionValue func ->
       sprintf "Function<%s:%i>" func.name func.arity
+  | ReturnValue (value, _) ->
+      sprintf "Return: {%s}" (string_of_value value)
   | NilValue ->
       "Nil"
 
-let stringify = function
+let rec stringify = function
   | StringValue str ->
       str
   | FloatValue fl ->
@@ -42,6 +45,8 @@ let stringify = function
       sprintf "%b" bl
   | FunctionValue func ->
       sprintf "%s:%i" func.name func.arity
+  | ReturnValue (value, _) ->
+      sprintf "return:%s" (stringify value)
   | NilValue ->
       "Nil"
 

@@ -55,61 +55,101 @@ let rec interpret_stmt stmt env =
   match stmt with
   | Statement stmt ->
       interpret_expression stmt.expr env
-  | PrintStmt stmt -> (
-    match interpret_expression stmt.expr env with
-    | Ok (value, new_env) ->
-        print_endline (stringify value) ;
-        Ok (NilValue, new_env)
-    | Error err ->
-        Error err )
-  | VarStmt stmt -> (
-      let init_res =
-        match stmt.init with
-        | Some expr ->
-            interpret_expression expr env
-        | None ->
-            Ok (NilValue, env)
-      in
-      match init_res with
-      | Error err ->
-          Error err
-      | Ok (init_val, new_env) ->
-          let mod_env = Environ.define new_env stmt.name.lexeme init_val in
-          Ok (NilValue, mod_env) )
-  | BlockStmt stmt_list -> (
-      let inner_env = Environ.push_env env in
-      let res =
-        List.fold_left
-          (fun prev_res next_stmt ->
-            match prev_res with
-            | Error err ->
-                Error err
-            | Ok (_, prev_env) ->
-                interpret_stmt next_stmt prev_env)
-          (Ok (NilValue, inner_env))
-          stmt_list
-      in
-      match res with
-      | Error err ->
-          Error err
-      | Ok (final_val, final_env) ->
-          Ok (final_val, Environ.pop_env final_env) )
-  | IfStmt stmt -> (
-    match interpret_expression stmt.condition env with
-    | Error err ->
-        Error err
-    | Ok (cond_value, cond_env) -> (
-        if is_truthy cond_value then interpret_stmt stmt.then_branch cond_env
-        else
-          match stmt.else_branch with
-          | Some else_stmt ->
-              interpret_stmt else_stmt cond_env
-          | None ->
-              Ok (NilValue, cond_env) ) )
+  | PrintStmt stmt ->
+      interpret_print stmt.expr env
+  | VarStmt stmt ->
+      interpret_var stmt.init stmt.name env
+  | BlockStmt stmt_list ->
+      interpret_block stmt_list env
+  | IfStmt stmt ->
+      interpret_if stmt.condition stmt.then_branch stmt.else_branch env
   | WhileStmt stmt ->
       interpret_while stmt.condition stmt.body env
   | FuncStmt stmt ->
       interpret_func stmt.name stmt.params stmt.body env
+  | ReturnStmt stmt ->
+      interpret_return stmt.keyword stmt.expr env
+
+and interpret_print expr env =
+  match interpret_expression expr env with
+  | Ok (value, new_env) ->
+      print_endline (stringify value) ;
+      Ok (NilValue, new_env)
+  | Error err ->
+      Error err
+
+and interpret_var init name env =
+  let init_res =
+    match init with
+    | Some expr ->
+        interpret_expression expr env
+    | None ->
+        Ok (NilValue, env)
+  in
+  match init_res with
+  | Error err ->
+      Error err
+  | Ok (init_val, new_env) ->
+      let mod_env = Environ.define new_env name.lexeme init_val in
+      Ok (NilValue, mod_env)
+
+and interpret_block stmt_list env =
+  let inner_env = Environ.push_env env in
+  let res =
+    List.fold_left
+      (fun prev_res next_stmt ->
+        match prev_res with
+        | Error err ->
+            Error err
+        | Ok (value, prev_env) -> (
+          match value with
+          | ReturnValue _ ->
+              Ok (value, prev_env)
+          | _ ->
+              interpret_stmt next_stmt prev_env ))
+      (Ok (NilValue, inner_env))
+      stmt_list
+  in
+  match res with
+  | Error err ->
+      Error err
+  | Ok (value, env) -> (
+      let final_env = Environ.pop_env env in
+      match value with
+      | ReturnValue (value, _) ->
+          Ok (value, final_env)
+      | _ ->
+          Ok (NilValue, final_env) )
+
+and interpret_if condition then_branch else_branch env =
+  match interpret_expression condition env with
+  | Error err ->
+      Error err
+  | Ok (cond_value, cond_env) -> (
+      if is_truthy cond_value then interpret_stmt then_branch cond_env
+      else
+        match else_branch with
+        | Some else_stmt ->
+            interpret_stmt else_stmt cond_env
+        | None ->
+            Ok (NilValue, cond_env) )
+
+and interpret_while condition body env =
+  let cond_res = interpret_expression condition env in
+  match cond_res with
+  | Error err ->
+      Error err
+  | Ok (cond_val, cond_env) -> (
+    match is_truthy cond_val with
+    | false ->
+        Ok (NilValue, cond_env)
+    | true -> (
+        let body_res = interpret_stmt body cond_env in
+        match body_res with
+        | Error err ->
+            Error err
+        | Ok (_, body_env) ->
+            interpret_while condition body body_env ) )
 
 and interpret_func name params body env =
   let function_val =
@@ -140,22 +180,19 @@ and gen_func_to_call params body =
   in
   func_to_call
 
-and interpret_while condition body env =
-  let cond_res = interpret_expression condition env in
-  match cond_res with
+and interpret_return symbol expr_opt env =
+  let value_res =
+    match expr_opt with
+    | None ->
+        Ok (NilValue, env)
+    | Some expr ->
+        interpret_expression expr env
+  in
+  match value_res with
   | Error err ->
       Error err
-  | Ok (cond_val, cond_env) -> (
-    match is_truthy cond_val with
-    | false ->
-        Ok (NilValue, cond_env)
-    | true -> (
-        let body_res = interpret_stmt body cond_env in
-        match body_res with
-        | Error err ->
-            Error err
-        | Ok (_, body_env) ->
-            interpret_while condition body body_env ) )
+  | Ok (value, env) ->
+      Ok (ReturnValue (value, symbol.line), env)
 
 and interpret_expression expr env =
   match expr with
@@ -367,6 +404,12 @@ let rec interpret env stmt_list =
     match interpret_stmt stmt env with
     | Error err ->
         Error err
-    | Ok (value, new_env) ->
-        if List.length rest == 0 then Ok (value, new_env)
-        else interpret new_env rest )
+    | Ok (value, new_env) -> (
+      match value with
+      | ReturnValue (_, line) ->
+          Error
+            [ create_error ~line ~where:" at return"
+                ~message:"Called return outside of a function!" ]
+      | _ ->
+          if List.length rest == 0 then Ok (value, new_env)
+          else interpret new_env rest ) )

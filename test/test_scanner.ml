@@ -93,8 +93,13 @@ let while_stmt_test _ =
     ; (RightBrace, "}", 1)
     ; (EOF, "", 1) ]
 
+let return_stmt_test _ =
+  run_scanner_test "return x;"
+    [(Return, "return", 1); (Identifier, "x", 1); (Semicolon, ";", 1)]
+
 let statement_test_suite =
-  "StatementSuite" >::: ["WhileStmt" >:: while_stmt_test]
+  "StatementSuite"
+  >::: ["WhileStmt" >:: while_stmt_test; "ReturnStmt" >:: return_stmt_test]
 
 (* full test suit and run function *)
 let full_suite = "ScannerTests" >::: [new_line_suite; literals_test_suite]

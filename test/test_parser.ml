@@ -45,6 +45,8 @@ let greater_token = {Olox.Token.token_type= Greater; lexeme= ">"; line= 1}
 
 let less_token = {Olox.Token.token_type= Less; lexeme= "<"; line= 1}
 
+let return_token = {Olox.Token.token_type= Return; lexeme= "return"; line= 1}
+
 (* unit tests start here *)
 let basic_tests_suite =
   "BasicSuite"
@@ -96,7 +98,15 @@ let basic_tests_suite =
            )
          ; ( "BasicVarDeclNoInit"
            , "var x;"
-           , [VarStmt {name= x_token; init= None}] ) ]
+           , [VarStmt {name= x_token; init= None}] )
+         ; ( "BasicReturnStmt"
+           , "return x;"
+           , [ ReturnStmt
+                 {expr= Some (Variable {name= x_token}); keyword= return_token}
+             ] )
+         ; ( "BasicReturnStmtNoExpr"
+           , "return;"
+           , [ReturnStmt {expr= None; keyword= return_token}] ) ]
 
 let loop_tests_suite =
   "LoopSuite"

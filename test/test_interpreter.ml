@@ -54,7 +54,10 @@ let basic_tests_suite =
            , FloatValue 10.0 )
          ; ( "ReverseWhileLoop"
            , "var a = 10; while (a > 0) { a = a - 1; } a;"
-           , FloatValue 0.0 ) ]
+           , FloatValue 0.0 )
+         ; ( "ReturnCall"
+           , "fun func(a,b) {return a + b;} func(1, 2);"
+           , FloatValue 3.0 ) ]
 
 let basic_error_tests_suite =
   "ErrorSuite"
@@ -62,7 +65,10 @@ let basic_error_tests_suite =
          (fun (title, to_interp, exp) ->
            let error_list = generate_error_list exp in
            title >:: fun _ -> run_error_parser_test to_interp error_list)
-         [("UninitializedVar", "a + 1;", [(1, "", "No variable called 'a'")])]
+         [ ("UninitializedVar", "a + 1;", [(1, "", "No variable called 'a'")])
+         ; ( "ReturnNotInFunc"
+           , "return 1;"
+           , [(1, " at return", "Called return outside of a function!")] ) ]
 
 (* full test suit and run function *)
 let full_suite =

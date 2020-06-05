@@ -187,6 +187,8 @@ and parse_stmt tokens =
         parse_while_stmt rest
     | For ->
         parse_for_stmt rest
+    | Return ->
+        parse_return_stmt head rest
     | _ ->
         parse_expr_stmt tokens )
 
@@ -295,6 +297,25 @@ and parse_for_stmt tokens =
               ( generate_for_loop init_stmt_opt cond_expr_opt inc_expr_opt
                   body_stmt
               , remain_tokens ) ) )
+
+and parse_return_stmt keyword tokens =
+  match tokens with
+  | [] ->
+      raise (Parser_Error ("Expected ';' after 'return';", []))
+  | head :: _ ->
+      let expr, rest =
+        match head.token_type with
+        | Semicolon ->
+            (None, tokens)
+        | _ ->
+            let ret_expr, rest = parse_expression tokens in
+            (Some ret_expr, rest)
+      in
+      let _, rest =
+        parse_one_token Semicolon "Expected ';' at the end of return statement!"
+          rest
+      in
+      (ReturnStmt {keyword; expr}, rest)
 
 and parse_expr_stmt tokens =
   let new_expr, rest = parse_expression tokens in
@@ -484,7 +505,7 @@ let rec parse prev_stmts prev_errors tokens =
             parse prev_stmts
               (create_error ~line:~-1 ~where:" at end" ~message :: prev_errors)
               []
-        | head :: _ -> (
+        | head :: rest -> (
           match head.token_type with
           | EOF ->
               parse prev_stmts
@@ -497,4 +518,4 @@ let rec parse prev_stmts prev_errors tokens =
                     ~where:(sprintf " at '%s'" head.lexeme)
                     ~message
                 :: prev_errors )
-                (synchronize tokens) ) ) ) )
+                (synchronize rest) ) ) ) )

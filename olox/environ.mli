@@ -3,7 +3,7 @@
 (** Imutable representation of the environment state *)
 type environ
 
-(** Global environment, usualy stored in an environ *)
+(** Global environment, usualy stored in an [environ] *)
 type global_env
 
 (** The diffierent values that can be stored in an environment *)
@@ -18,6 +18,9 @@ type value =
           -> global_env
           -> (value * global_env, Reporting.error_record list) result
       ; name: string }
+  | ReturnValue of value * int
+      (** This value is used internaly to implement return in functions.
+          The [int] represents the line number where the return was called.*)
   | NilValue
 
 (* Funcitons on values *)

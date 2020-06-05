@@ -42,7 +42,7 @@ let run_file file_name =
     | None ->
         close_in ic ; List.rev acc
   in
-  let file = String.concat " " (loop []) in
+  let file = String.concat "\n" (loop []) in
   ignore (run file (Olox.Environ.create_environ ()))
 
 (** Calls the different read command depending on the number of args *)

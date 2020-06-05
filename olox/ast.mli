@@ -17,6 +17,7 @@ type expression =
 type statement =
   | Statement of {expr: expression}
   | PrintStmt of {expr: expression}
+  | ReturnStmt of {keyword: Token.token; expr: expression option}
   | VarStmt of {name: Token.token; init: expression option}
   | BlockStmt of statement list
   | IfStmt of
