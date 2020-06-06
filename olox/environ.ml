@@ -18,6 +18,7 @@ and value =
           -> global_env
           -> (value * global_env, Reporting.error_record list) result
       ; name: string }
+  | ClassValue of {name: string}
   | ReturnValue of value * int
   | NilValue
 
@@ -31,6 +32,8 @@ let rec string_of_value = function
       sprintf "Bool: %b" bl
   | FunctionValue func ->
       sprintf "Function<%s:%i>" func.name func.arity
+  | ClassValue klass ->
+      sprintf "Class<%s>" klass.name
   | ReturnValue (value, _) ->
       sprintf "Return: {%s}" (string_of_value value)
   | NilValue ->
@@ -45,6 +48,8 @@ let rec stringify = function
       sprintf "%b" bl
   | FunctionValue func ->
       sprintf "%s:%i" func.name func.arity
+  | ClassValue klass ->
+      sprintf "%s" klass.name
   | ReturnValue (value, _) ->
       sprintf "return:%s" (stringify value)
   | NilValue ->

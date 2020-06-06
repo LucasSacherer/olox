@@ -20,12 +20,15 @@ type statement =
   | ReturnStmt of {keyword: Token.token; expr: expression option}
   | VarStmt of {name: Token.token; init: expression option}
   | BlockStmt of statement list
+  | ClassStmt of {name: Token.token; methods: func_def list}
   | IfStmt of
       { condition: expression
       ; then_branch: statement
       ; else_branch: statement option }
   | WhileStmt of {condition: expression; body: statement}
-  | FuncStmt of {name: Token.token; params: Token.token list; body: statement}
+  | FuncStmt of func_def
+
+and func_def = {name: Token.token; params: Token.token list; body: statement}
 
 val string_of_literal : literal_type -> string
 

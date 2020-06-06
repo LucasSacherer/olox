@@ -18,6 +18,7 @@ type value =
           -> global_env
           -> (value * global_env, Reporting.error_record list) result
       ; name: string }
+  | ClassValue of {name: string}
   | ReturnValue of value * int
       (** This value is used internaly to implement return in functions.
           The [int] represents the line number where the return was called.*)

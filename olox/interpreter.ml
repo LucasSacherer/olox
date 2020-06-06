@@ -69,6 +69,10 @@ let rec interpret_stmt stmt env =
       interpret_func stmt.name stmt.params stmt.body env
   | ReturnStmt stmt ->
       interpret_return stmt.keyword stmt.expr env
+  | ClassStmt _ ->
+      Error
+        [ create_error ~line:~-1 ~where:""
+            ~message:"Classes are not implemented yet!" ]
 
 and interpret_print expr env =
   match interpret_expression expr env with
@@ -156,7 +160,7 @@ and interpret_func name params body env =
     FunctionValue
       { arity= List.length params
       ; name= name.lexeme
-      ; to_call= gen_func_to_call params body env}
+      ; to_call= gen_func_to_call params body env }
   in
   let new_env = Environ.define env name.lexeme function_val in
   Ok (NilValue, new_env)

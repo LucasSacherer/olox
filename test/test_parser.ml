@@ -106,7 +106,22 @@ let basic_tests_suite =
              ] )
          ; ( "BasicReturnStmtNoExpr"
            , "return;"
-           , [ReturnStmt {expr= None; keyword= return_token}] ) ]
+           , [ReturnStmt {expr= None; keyword= return_token}] )
+         ; ("BasicClass", "class x{}", [ClassStmt {name= x_token; methods= []}])
+         ; ( "BasicClassMethods"
+           , "class x{y(z){return z;}z(){}}"
+           , [ ClassStmt
+                 { name= x_token
+                 ; methods=
+                     [ { name= y_token
+                       ; params= [z_token]
+                       ; body=
+                           BlockStmt
+                             [ ReturnStmt
+                                 { keyword= return_token
+                                 ; expr= Some (Variable {name= z_token}) } ] }
+                     ; {name= z_token; params= []; body= BlockStmt []} ] } ] )
+         ]
 
 let loop_tests_suite =
   "LoopSuite"

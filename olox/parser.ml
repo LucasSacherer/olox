@@ -82,11 +82,26 @@ let generate_for_loop init_stmt_opt cond_expr_opt inc_expr_opt body_stmt =
   in
   final_stmt
 
+(* This should never fail, so this throws a fatal internal error. *)
+let convert_to_func_decl stmt_list =
+  List.map
+    (fun stmt ->
+      match stmt with
+      | FuncStmt stmt ->
+          stmt
+      | _ ->
+          raise
+            (Parser_Error
+               ( "INTERNAL ERROR: tried to convert non func_decl in \
+                  'convert_to_func_decl'!"
+               , [] )))
+    stmt_list
+
 (**************************************
  * Start of the parser.
  **************************************)
 
-type func_type = Function (*| Method*)
+type func_type = Function | Method
 
 let rec parse_decl tokens =
   match tokens with
@@ -98,12 +113,17 @@ let rec parse_decl tokens =
         parse_var_decl rest
     | Fun ->
         parse_function rest Function
+    | Class ->
+        parse_class rest
     | _ ->
         parse_stmt tokens )
 
-and parse_function tokens _ (* func_type *) =
+and parse_function tokens func_type =
+  let error_name = match func_type with
+  | Function -> "function"
+  | Method -> "method" in
   let name, rest =
-    parse_one_token Identifier "Expected name to start function decleration!"
+    parse_one_token Identifier (sprintf "Expected name to start %s decleration!" error_name)
       tokens
   in
   let rec parse_params tokens acc =
@@ -135,14 +155,41 @@ and parse_function tokens _ (* func_type *) =
       )
   in
   let _, rest =
-    parse_one_token LeftParen "Expected '(' after function name!" rest
+    parse_one_token LeftParen (sprintf "Expected '(' after %s name!" error_name) rest
   in
   let params, rest = parse_params rest [] in
   let _, rest =
-    parse_one_token LeftBrace "Expected '{' to start function body!" rest
+    parse_one_token LeftBrace (sprintf "Expected '{' to start %s body!" error_name) rest
   in
   let body, remain_tokens = parse_block_stmt rest in
   (FuncStmt {name; params; body}, remain_tokens)
+
+and parse_class tokens =
+  let name, rest =
+    parse_one_token Identifier "Expected a class name after 'class'!" tokens
+  in
+  let _, rest =
+    parse_one_token LeftBrace "Expected '{' after class name!" rest
+  in
+  let rec parse_methods tokens methods =
+    match tokens with
+    | [] ->
+        raise (Parser_Error ("Expected '}' and end of class definition!", []))
+    | head :: _ -> (
+      match head.token_type with
+      | RightBrace ->
+          (List.rev methods, tokens)
+      | _ ->
+          let func, rest = parse_function tokens Method in
+          parse_methods rest (func :: methods) )
+  in
+  let stmt_list, rest = parse_methods rest [] in
+  let methods = convert_to_func_decl stmt_list in
+  let _, rest =
+    parse_one_token RightBrace "Expected '}' at the end of class definition!"
+      rest
+  in
+  (ClassStmt {name; methods}, rest)
 
 and parse_var_decl tokens =
   let name, rest =

@@ -32,12 +32,15 @@ type statement =
   | ReturnStmt of {keyword: Token.token; expr: expression option}
   | VarStmt of {name: Token.token; init: expression option}
   | BlockStmt of statement list
+  | ClassStmt of {name: Token.token; methods: func_def list}
   | IfStmt of
       { condition: expression
       ; then_branch: statement
       ; else_branch: statement option }
   | WhileStmt of {condition: expression; body: statement}
-  | FuncStmt of {name: Token.token; params: Token.token list; body: statement}
+  | FuncStmt of func_def
+
+and func_def = {name: Token.token; params: Token.token list; body: statement}
 
 let rec string_of_expression = function
   | Assign assi ->
@@ -102,10 +105,16 @@ let rec string_of_statement stmt =
         (string_of_expression stmt.condition)
         (string_of_statement stmt.body)
   | FuncStmt stmt ->
-      sprintf "Function:(name:%s args%s body%s)" stmt.name.lexeme
-        (String.concat ", "
-           (List.map (fun tok -> tok.Token.lexeme) stmt.params))
-        (string_of_statement stmt.body)
+      string_of_function_def stmt
+  | ClassStmt stmt ->
+      sprintf "Class:(name:%s methods:{%s})" stmt.name.lexeme
+        (String.concat "," (List.map string_of_function_def stmt.methods))
+
+and string_of_function_def func_def =
+  sprintf "Function:(name:%s args:{%s} body:%s)" func_def.name.lexeme
+    (String.concat ", "
+       (List.map (fun tok -> tok.Token.lexeme) func_def.params))
+    (string_of_statement func_def.body)
 
 let string_of_stmt_list stmt_list =
   let rec loop stmt_list acc =
