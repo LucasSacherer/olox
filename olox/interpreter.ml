@@ -156,15 +156,15 @@ and interpret_func name params body env =
     FunctionValue
       { arity= List.length params
       ; name= name.lexeme
-      ; to_call= gen_func_to_call params body }
+      ; to_call= gen_func_to_call params body env}
   in
   let new_env = Environ.define env name.lexeme function_val in
   Ok (NilValue, new_env)
 
-and gen_func_to_call params body =
+and gen_func_to_call params body env =
   let string_params = List.map (fun param -> param.Token.lexeme) params in
   let func_to_call args global_env =
-    let new_env = Environ.from_global global_env in
+    let new_env = Environ.apply_global env global_env in
     let local_env = Environ.push_env new_env in
     let call_env =
       List.fold_left2

@@ -57,7 +57,10 @@ let basic_tests_suite =
            , FloatValue 0.0 )
          ; ( "ReturnCall"
            , "fun func(a,b) {return a + b;} func(1, 2);"
-           , FloatValue 3.0 ) ]
+           , FloatValue 3.0 )
+         ; ( "Clojure"
+           , "fun a() {var i = 1; fun b() {return i;} return b();} a();"
+           , FloatValue 1.0 ) ]
 
 let basic_error_tests_suite =
   "ErrorSuite"
@@ -70,8 +73,19 @@ let basic_error_tests_suite =
            , "return 1;"
            , [(1, " at return", "Called return outside of a function!")] ) ]
 
+let end_to_end_suite =
+  "EndToEnd"
+  >::: List.map
+         (fun (title, to_interp, exp) ->
+           title >:: fun _ -> run_interpreter_test to_interp exp)
+         [ ( "Fibonacci"
+           , "fun fibonacci(n) {if (n<=1) return n; return fibonacci(n-2) + \
+              fibonacci(n-1);} fibonacci(10);"
+           , FloatValue 55.0 ) ]
+
 (* full test suit and run function *)
 let full_suite =
-  "InterpreterTests" >::: [basic_tests_suite; basic_error_tests_suite]
+  "InterpreterTests"
+  >::: [basic_tests_suite; basic_error_tests_suite; end_to_end_suite]
 
 let () = run_test_tt_main full_suite
