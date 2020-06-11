@@ -119,11 +119,12 @@ let rec parse_decl tokens =
         parse_stmt tokens )
 
 and parse_function tokens func_type =
-  let error_name = match func_type with
-  | Function -> "function"
-  | Method -> "method" in
+  let error_name =
+    match func_type with Function -> "function" | Method -> "method"
+  in
   let name, rest =
-    parse_one_token Identifier (sprintf "Expected name to start %s decleration!" error_name)
+    parse_one_token Identifier
+      (sprintf "Expected name to start %s decleration!" error_name)
       tokens
   in
   let rec parse_params tokens acc =
@@ -155,11 +156,15 @@ and parse_function tokens func_type =
       )
   in
   let _, rest =
-    parse_one_token LeftParen (sprintf "Expected '(' after %s name!" error_name) rest
+    parse_one_token LeftParen
+      (sprintf "Expected '(' after %s name!" error_name)
+      rest
   in
   let params, rest = parse_params rest [] in
   let _, rest =
-    parse_one_token LeftBrace (sprintf "Expected '{' to start %s body!" error_name) rest
+    parse_one_token LeftBrace
+      (sprintf "Expected '{' to start %s body!" error_name)
+      rest
   in
   let body, remain_tokens = parse_block_stmt rest in
   (FuncStmt {name; params; body}, remain_tokens)

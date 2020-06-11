@@ -13,7 +13,7 @@ and value =
   | BoolValue of bool
   | FunctionValue of
       { arity: int
-      ; to_call:
+      ; mutable to_call:
              value list
           -> global_env
           -> (value * global_env, Reporting.error_record list) result

@@ -50,6 +50,11 @@ let tuple_eq tuple =
 
 let is_truthy = function BoolValue bl -> bl | NilValue -> false | _ -> true
 
+let dummy_function _ _ =
+  Error
+    [ create_error ~line:~-1 ~where:"FATAL"
+        ~message:"DID NOT REPLACE THE DUMMY FUNCTION IN FUNCTION DEF!!!!" ]
+
 (* interpreter *)
 let rec interpret_stmt stmt env =
   match stmt with
@@ -158,12 +163,17 @@ and interpret_while condition body env =
 and interpret_func name params body env =
   let function_val =
     FunctionValue
-      { arity= List.length params
-      ; name= name.lexeme
-      ; to_call= gen_func_to_call params body env }
+      {arity= List.length params; name= name.lexeme; to_call= dummy_function}
   in
   let new_env = Environ.define env name.lexeme function_val in
-  Ok (NilValue, new_env)
+  let to_call = gen_func_to_call params body new_env in
+  match function_val with
+  | FunctionValue func_rec ->
+      func_rec.to_call <- to_call ;
+      Ok (NilValue, new_env)
+  | _ ->
+      (* This will never happend *)
+      Error []
 
 and gen_func_to_call params body env =
   let string_params = List.map (fun param -> param.Token.lexeme) params in

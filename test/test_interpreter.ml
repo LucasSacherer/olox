@@ -59,7 +59,11 @@ let basic_tests_suite =
            , "fun func(a,b) {return a + b;} func(1, 2);"
            , FloatValue 3.0 )
          ; ( "Clojure"
-           , "fun a() {var i = 1; fun b() {return i;} return b();} a();"
+           , "fun a() {var i = 1; fun b() {return i;} i = 2; return b();} a();"
+           , FloatValue 1.0 )
+         ; ( "RecursiveLambda"
+           , "fun a() {fun b(x){if (x <= 1) return x; else return b(x - 1);} \
+              return b(5);} a();"
            , FloatValue 1.0 ) ]
 
 let basic_error_tests_suite =
