@@ -8,10 +8,12 @@ type expression =
   | Assign of {name: Token.token; expr: expression}
   | Binary of {left: expression; operator: Token.token; right: expression}
   | Call of {callee: expression; paren: Token.token; arguments: expression list}
+  | Get of {obj: expression; name: Token.token}
   | Grouping of {expr: expression}
   | Unary of {operator: Token.token; right: expression}
   | Literal of literal_type
   | Logical of {left: expression; operator: Token.token; right: expression}
+  | Set of {obj: expression; name: Token.token; value: expression}
   | Variable of {name: Token.token}
 
 type statement =

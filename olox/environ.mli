@@ -6,6 +6,9 @@ type environ
 (** Global environment, usualy stored in an [environ] *)
 type global_env
 
+(** Imutable representation of a class' environment.*)
+type class_env
+
 (** The diffierent values that can be stored in an environment *)
 type value =
   | StringValue of string
@@ -18,16 +21,26 @@ type value =
           -> global_env
           -> (value * global_env, Reporting.error_record list) result
       ; name: string }
-  | ClassValue of {name: string}
+  | ClassValue of class_desc
+  | ClassInstance of {klass: class_desc; mutable env: class_env}
   | ReturnValue of value * int
       (** This value is used internaly to implement return in functions.
           The [int] represents the line number where the return was called.*)
   | NilValue
 
+and class_desc = {name: string}
+
 (* Funcitons on values *)
 val string_of_value : value -> string
 
 val stringify : value -> string
+
+(* Functions on class environments *)
+val create_class_env : unit -> class_env
+
+val get_property : class_env -> string -> value option
+
+val set_property : class_env -> string -> value -> class_env
 
 (* Functions on an environ *)
 val create_environ : unit -> environ

@@ -74,10 +74,8 @@ let rec interpret_stmt stmt env =
       interpret_func stmt.name stmt.params stmt.body env
   | ReturnStmt stmt ->
       interpret_return stmt.keyword stmt.expr env
-  | ClassStmt _ ->
-      Error
-        [ create_error ~line:~-1 ~where:""
-            ~message:"Classes are not implemented yet!" ]
+  | ClassStmt stmt ->
+      interpret_class stmt.name stmt.methods env
 
 and interpret_print expr env =
   match interpret_expression expr env with
@@ -208,10 +206,15 @@ and interpret_return symbol expr_opt env =
   | Ok (value, env) ->
       Ok (ReturnValue (value, symbol.line), env)
 
+and interpret_class name _ env =
+  let klass = ClassValue {name= name.lexeme} in
+  let new_env = define env name.lexeme klass in
+  Ok (NilValue, new_env)
+
 and interpret_expression expr env =
   match expr with
   | Literal lit ->
-      interpet_literal lit env
+      interpret_literal lit env
   | Grouping grp ->
       interpret_expression grp.expr env
   | Unary un ->
@@ -244,8 +247,12 @@ and interpret_expression expr env =
       interpret_logical log.operator log.left log.right env
   | Call call ->
       interpret_call call.callee call.paren call.arguments env
+  | Get get ->
+      interpret_get get.obj get.name env
+  | Set set ->
+      interpret_set set.obj set.name set.value env
 
-and interpet_literal lit env =
+and interpret_literal lit env =
   match lit with
   | StringLiteral str ->
       Ok (StringValue str, env)
@@ -403,12 +410,62 @@ and interpret_call callee left_paren arguments env =
                     Error error
                 | Ok (call_val, new_global) ->
                     Ok (call_val, apply_global args_env new_global) )
+          | ClassValue klass ->
+              if List.length call_args != 0 then
+                Error
+                  [ create_error ~line:left_paren.line ~where:""
+                      ~message:
+                        "No arguments are allowed when creating a class \
+                         instance!" ]
+              else Ok (ClassInstance {klass; env= create_class_env ()}, args_env)
           | _ ->
               Error
                 [ create_error ~line:left_paren.line ~where:""
                     ~message:
                       (sprintf "Can only call functions and classes, got %s"
                          (string_of_value callee_val)) ] ) )
+
+and interpret_get obj name env =
+  match interpret_expression obj env with
+  | Error err ->
+      Error err
+  | Ok (obj_val, env) -> (
+    match obj_val with
+    | ClassInstance inst -> (
+      match get_property inst.env name.lexeme with
+      | Some value ->
+          Ok (value, env)
+      | None ->
+          Error
+            [ create_error ~line:name.line ~where:" at get call"
+                ~message:(sprintf "Undefined property %s!" name.lexeme) ] )
+    | _ ->
+        Error
+          [ create_error ~line:name.line ~where:" at get call"
+              ~message:
+                (sprintf "Only instances have properties, got %s!"
+                   (string_of_value obj_val)) ] )
+
+and interpret_set obj name value env =
+  match interpret_expression obj env with
+  | Error err ->
+      Error err
+  | Ok (obj_val, env) -> (
+    match obj_val with
+    | ClassInstance inst -> (
+      match interpret_expression value env with
+      | Error err ->
+          Error err
+      | Ok (set_val, env) ->
+          let new_class_env = set_property inst.env name.lexeme set_val in
+          inst.env <- new_class_env ;
+          Ok (NilValue, env) )
+    | _ ->
+        Error
+          [ create_error ~line:name.line ~where:" at set call"
+              ~message:
+                (sprintf "Only instances have fields, got %s!"
+                   (string_of_value obj_val)) ] )
 
 let rec interpret env stmt_list =
   match stmt_list with

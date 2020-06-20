@@ -47,6 +47,8 @@ let less_token = {Olox.Token.token_type= Less; lexeme= "<"; line= 1}
 
 let return_token = {Olox.Token.token_type= Return; lexeme= "return"; line= 1}
 
+let paren_token = {Olox.Token.token_type= LeftParen; lexeme= "("; line= 1}
+
 (* unit tests start here *)
 let basic_tests_suite =
   "BasicSuite"
@@ -121,7 +123,48 @@ let basic_tests_suite =
                                  { keyword= return_token
                                  ; expr= Some (Variable {name= z_token}) } ] }
                      ; {name= z_token; params= []; body= BlockStmt []} ] } ] )
-         ]
+         ; ( "BasicCall"
+           , "x(y,z,3.0);"
+           , [ Statement
+                 { expr=
+                     Call
+                       { paren= paren_token
+                       ; arguments=
+                           [ Variable {name= y_token}
+                           ; Variable {name= z_token}
+                           ; Literal (FloatLiteral 3.0) ]
+                       ; callee= Variable {name= x_token} } } ] )
+         ; ( "BasicClassGet"
+           , "x.y;"
+           , [ Statement
+                 {expr= Get {obj= Variable {name= x_token}; name= y_token}} ] )
+         ; ( "BasicClassChain"
+           , "x.y().z(3);"
+           , [ Statement
+                 { expr=
+                     Call
+                       { paren= paren_token
+                       ; arguments= [Literal (FloatLiteral 3.0)]
+                       ; callee=
+                           Get
+                             { name= z_token
+                             ; obj=
+                                 Call
+                                   { paren= paren_token
+                                   ; arguments= []
+                                   ; callee=
+                                       Get
+                                         { name= y_token
+                                         ; obj= Variable {name= x_token} } } }
+                       } } ] )
+         ; ( "BasicSet"
+           , "x.y.z = 3;"
+           , [ Statement
+                 { expr=
+                     Set
+                       { obj= Get {name= y_token; obj= Variable {name= x_token}}
+                       ; name= z_token
+                       ; value= Literal (FloatLiteral 3.0) } } ] ) ]
 
 let loop_tests_suite =
   "LoopSuite"

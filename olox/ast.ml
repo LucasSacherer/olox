@@ -20,10 +20,12 @@ type expression =
   | Assign of {name: Token.token; expr: expression}
   | Binary of {left: expression; operator: Token.token; right: expression}
   | Call of {callee: expression; paren: Token.token; arguments: expression list}
+  | Get of {obj: expression; name: Token.token}
   | Grouping of {expr: expression}
   | Unary of {operator: Token.token; right: expression}
   | Literal of literal_type
   | Logical of {left: expression; operator: Token.token; right: expression}
+  | Set of {obj: expression; name: Token.token; value: expression}
   | Variable of {name: Token.token}
 
 type statement =
@@ -55,6 +57,9 @@ let rec string_of_expression = function
       sprintf "(calle: %s with args: %s)"
         (string_of_expression call.callee)
         (String.concat ", " (List.map string_of_expression call.arguments))
+  | Get get ->
+      sprintf "(get: %s from: %s)" get.name.lexeme
+        (string_of_expression get.obj)
   | Logical log ->
       sprintf "(<log> %s %s %s)"
         (string_of_expression log.left)
@@ -66,6 +71,10 @@ let rec string_of_expression = function
       sprintf "(%s %s)" un.operator.lexeme (string_of_expression un.right)
   | Literal lit ->
       string_of_literal lit
+  | Set set ->
+      sprintf "(set: %s in: %s to: %s)" set.name.lexeme
+        (string_of_expression set.obj)
+        (string_of_expression set.value)
   | Variable var ->
       sprintf "(variable '%s')" var.name.lexeme
 

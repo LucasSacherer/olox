@@ -387,6 +387,8 @@ and parse_assignment tokens =
         match left_expr with
         | Variable var ->
             (Assign {name= var.name; expr= value}, remain_tokens)
+        | Get get ->
+            (Set {obj= get.obj; name= get.name; value}, remain_tokens)
         | _ ->
             raise (Parser_Error ("Invalid assignment target!", right_tokens)) )
     | _ ->
@@ -457,8 +459,14 @@ and parse_call tokens =
     | head :: rest -> (
       match head.token_type with
       | LeftParen ->
-          let call_expr, remain_tokens = parse_call_end base_exp head rest in
-          try_parse_call call_expr remain_tokens
+          let call_expr, rest = parse_call_end base_exp head rest in
+          try_parse_call call_expr rest
+      | Dot ->
+          let name, rest =
+            parse_one_token Identifier "Expected property name after '.'!" rest
+          in
+          let get_expr = Get {name; obj= base_exp} in
+          try_parse_call get_expr rest
       | _ ->
           (base_exp, tokens) )
   in

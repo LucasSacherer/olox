@@ -64,7 +64,11 @@ let basic_tests_suite =
          ; ( "RecursiveLambda"
            , "fun a() {fun b(x){if (x <= 1) return x; else return b(x - 1);} \
               return b(5);} a();"
-           , FloatValue 1.0 ) ]
+           , FloatValue 1.0 )
+         ; ( "ClassGetSet"
+           , "class X {} fun y(){var x = X();fun a(){return x.i;} x.i=2; \
+              return a();} y();"
+           , FloatValue 2.0 ) ]
 
 let basic_error_tests_suite =
   "ErrorSuite"

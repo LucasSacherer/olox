@@ -7,6 +7,8 @@ type environ = value StringMap.t list * global_env
 
 and global_env = value StringMap.t
 
+and class_env = value StringMap.t
+
 and value =
   | StringValue of string
   | FloatValue of float
@@ -18,9 +20,12 @@ and value =
           -> global_env
           -> (value * global_env, Reporting.error_record list) result
       ; name: string }
-  | ClassValue of {name: string}
+  | ClassValue of class_desc
+  | ClassInstance of {klass: class_desc; mutable env: class_env}
   | ReturnValue of value * int
   | NilValue
+
+and class_desc = {name: string}
 
 (* value functions *)
 let rec string_of_value = function
@@ -32,12 +37,16 @@ let rec string_of_value = function
       sprintf "Bool: %b" bl
   | FunctionValue func ->
       sprintf "Function<%s:%i>" func.name func.arity
-  | ClassValue klass ->
-      sprintf "Class<%s>" klass.name
+  | ClassValue class_desc ->
+      print_class_desc class_desc
+  | ClassInstance inst ->
+      sprintf "Instance<%s>" (print_class_desc inst.klass)
   | ReturnValue (value, _) ->
       sprintf "Return: {%s}" (string_of_value value)
   | NilValue ->
       "Nil"
+
+and print_class_desc desc = sprintf "Class<%s>" desc.name
 
 let rec stringify = function
   | StringValue str ->
@@ -49,11 +58,22 @@ let rec stringify = function
   | FunctionValue func ->
       sprintf "%s:%i" func.name func.arity
   | ClassValue klass ->
-      sprintf "%s" klass.name
+      stringify_class_desc klass
+  | ClassInstance inst ->
+      sprintf "instance:%s" (stringify_class_desc inst.klass)
   | ReturnValue (value, _) ->
       sprintf "return:%s" (stringify value)
   | NilValue ->
       "Nil"
+
+and stringify_class_desc desc = sprintf "%s" desc.name
+
+(* class environ funcions *)
+let create_class_env () = StringMap.empty
+
+let get_property class_env name = StringMap.find_opt name class_env
+
+let set_property class_env name value = StringMap.add name value class_env
 
 (* environ functions *)
 let from_global global_env = ([], global_env)
