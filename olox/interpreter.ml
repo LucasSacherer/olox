@@ -50,7 +50,7 @@ let tuple_eq tuple =
 
 let is_truthy = function BoolValue bl -> bl | NilValue -> false | _ -> true
 
-let dummy_function _ _ =
+let dummy_function _ _ _ =
   Error
     [ create_error ~line:~-1 ~where:"FATAL"
         ~message:"DID NOT REPLACE THE DUMMY FUNCTION IN FUNCTION DEF!!!!" ]
@@ -82,8 +82,8 @@ and interpret_print expr env =
   | Ok (value, new_env) ->
       print_endline (stringify value) ;
       Ok (NilValue, new_env)
-  | Error err ->
-      Error err
+  | Error _ as err ->
+      err
 
 and interpret_var init name env =
   let init_res =
@@ -94,8 +94,8 @@ and interpret_var init name env =
         Ok (NilValue, env)
   in
   match init_res with
-  | Error err ->
-      Error err
+  | Error _ as err ->
+      err
   | Ok (init_val, new_env) ->
       let mod_env = Environ.define new_env name.lexeme init_val in
       Ok (NilValue, mod_env)
@@ -106,8 +106,8 @@ and interpret_block stmt_list env =
     List.fold_left
       (fun prev_res next_stmt ->
         match prev_res with
-        | Error err ->
-            Error err
+        | Error _ as err ->
+            err
         | Ok (value, prev_env) -> (
           match value with
           | ReturnValue _ ->
@@ -118,8 +118,8 @@ and interpret_block stmt_list env =
       stmt_list
   in
   match res with
-  | Error err ->
-      Error err
+  | Error _ as err ->
+      err
   | Ok (value, env) -> (
       let final_env = Environ.pop_env env in
       match value with
@@ -130,8 +130,8 @@ and interpret_block stmt_list env =
 
 and interpret_if condition then_branch else_branch env =
   match interpret_expression condition env with
-  | Error err ->
-      Error err
+  | Error _ as err ->
+      err
   | Ok (cond_value, cond_env) -> (
       if is_truthy cond_value then interpret_stmt then_branch cond_env
       else
@@ -144,8 +144,8 @@ and interpret_if condition then_branch else_branch env =
 and interpret_while condition body env =
   let cond_res = interpret_expression condition env in
   match cond_res with
-  | Error err ->
-      Error err
+  | Error _ as err ->
+      err
   | Ok (cond_val, cond_env) -> (
     match is_truthy cond_val with
     | false ->
@@ -153,20 +153,23 @@ and interpret_while condition body env =
     | true -> (
         let body_res = interpret_stmt body cond_env in
         match body_res with
-        | Error err ->
-            Error err
+        | Error _ as err ->
+            err
         | Ok (_, body_env) ->
             interpret_while condition body body_env ) )
 
 and interpret_func name params body env =
   let function_val =
     FunctionValue
-      {arity= List.length params; name= name.lexeme; to_call= dummy_function}
+      ( { arity= List.length params
+        ; func_name= name.lexeme
+        ; to_call= dummy_function }
+      , None )
   in
   let new_env = Environ.define env name.lexeme function_val in
   let to_call = gen_func_to_call params body new_env in
   match function_val with
-  | FunctionValue func_rec ->
+  | FunctionValue (func_rec, _) ->
       func_rec.to_call <- to_call ;
       Ok (NilValue, new_env)
   | _ ->
@@ -175,9 +178,16 @@ and interpret_func name params body env =
 
 and gen_func_to_call params body env =
   let string_params = List.map (fun param -> param.Token.lexeme) params in
-  let func_to_call args global_env =
+  let func_to_call args global_env class_inst_opt =
     let new_env = Environ.apply_global env global_env in
-    let local_env = Environ.push_env new_env in
+    let this_env =
+      match class_inst_opt with
+      | None ->
+          new_env
+      | Some class_inst ->
+          Environ.define new_env "this" (ClassInstance class_inst)
+    in
+    let local_env = Environ.push_env this_env in
     let call_env =
       List.fold_left2
         (fun prev_env param arg -> Environ.define prev_env param arg)
@@ -185,8 +195,8 @@ and gen_func_to_call params body env =
     in
     let env_res = interpret_stmt body call_env in
     match env_res with
-    | Error err ->
-        Error err
+    | Error _ as err ->
+        err
     | Ok (final_val, final_env) ->
         Ok (final_val, Environ.get_global final_env)
   in
@@ -201,14 +211,27 @@ and interpret_return symbol expr_opt env =
         interpret_expression expr env
   in
   match value_res with
-  | Error err ->
-      Error err
+  | Error _ as err ->
+      err
   | Ok (value, env) ->
       Ok (ReturnValue (value, symbol.line), env)
 
-and interpret_class name _ env =
-  let klass = ClassValue {name= name.lexeme} in
+and interpret_class name method_defs env =
+  let methods =
+    List.map
+      (fun def ->
+        { arity= List.length def.params
+        ; func_name= def.name.lexeme
+        ; to_call= dummy_function })
+      method_defs
+  in
+  let klass = ClassValue {class_name= name.lexeme; methods} in
   let new_env = define env name.lexeme klass in
+  List.iter2
+    (fun meth def ->
+      let to_call = gen_func_to_call def.params def.body new_env in
+      meth.to_call <- to_call)
+    methods method_defs ;
   Ok (NilValue, new_env)
 
 and interpret_expression expr env =
@@ -221,28 +244,10 @@ and interpret_expression expr env =
       interpret_unary un.operator un.right env
   | Binary bin ->
       interpret_binary bin.left bin.operator bin.right env
-  | Variable var -> (
-    match Environ.get env var.name.lexeme with
-    | Some value ->
-        Ok (value, env)
-    | None ->
-        Error
-          [ create_error ~line:var.name.line ~where:""
-              ~message:(sprintf "No variable called '%s'" var.name.lexeme) ] )
-  | Assign assi -> (
-    match interpret_expression assi.expr env with
-    | Error err ->
-        Error err
-    | Ok (set_val, new_env) -> (
-      match Environ.assign new_env assi.name.lexeme set_val with
-      | None ->
-          Error
-            [ create_error ~line:assi.name.line ~where:""
-                ~message:
-                  (sprintf "Can't assign to undeclared variable '%s'"
-                     assi.name.lexeme) ]
-      | Some final_env ->
-          Ok (set_val, final_env) ) )
+  | Variable var ->
+      interpret_variable var.name env
+  | Assign assi ->
+      interpret_assign assi.name assi.expr env
   | Logical log ->
       interpret_logical log.operator log.left log.right env
   | Call call ->
@@ -251,6 +256,8 @@ and interpret_expression expr env =
       interpret_get get.obj get.name env
   | Set set ->
       interpret_set set.obj set.name set.value env
+  | This this ->
+      interpret_variable this.keyword env
 
 and interpret_literal lit env =
   match lit with
@@ -319,14 +326,38 @@ and interpret_binary left_expr operator right_expr env =
                 (sprintf "Unexpected binary operator: %s" operator.lexeme) ]
   in
   match interpret_expression left_expr env with
-  | Error err ->
-      Error err
+  | Error _ as err ->
+      err
   | Ok (left_val, left_env) -> (
     match interpret_expression right_expr left_env with
-    | Error err ->
-        Error err
+    | Error _ as err ->
+        err
     | Ok (right_val, right_env) ->
         interpret_helper left_val right_val right_env )
+
+and interpret_variable var_name env =
+  match Environ.get env var_name.lexeme with
+  | Some value ->
+      Ok (value, env)
+  | None ->
+      Error
+        [ create_error ~line:var_name.line ~where:""
+            ~message:(sprintf "No variable called '%s'" var_name.lexeme) ]
+
+and interpret_assign name expr env =
+  match interpret_expression expr env with
+  | Error _ as err ->
+      err
+  | Ok (set_val, new_env) -> (
+    match Environ.assign new_env name.lexeme set_val with
+    | None ->
+        Error
+          [ create_error ~line:name.line ~where:""
+              ~message:
+                (sprintf "Can't assign to undeclared variable '%s'" name.lexeme)
+          ]
+    | Some final_env ->
+        Ok (set_val, final_env) )
 
 (* TODO: Find a way to get the two following functions into one *)
 and interpret_binary_float_arith func operator left_val right_val env =
@@ -361,8 +392,8 @@ and interpret_binary_plus operator left_val right_val env =
 and interpret_logical operator left_exp right_expr env =
   let left_res = interpret_expression left_exp env in
   match left_res with
-  | Error err ->
-      Error err
+  | Error _ as err ->
+      err
   | Ok (left_val, left_env) -> (
     match (operator.token_type, is_truthy left_val) with
     | Or, true | And, false ->
@@ -372,32 +403,32 @@ and interpret_logical operator left_exp right_expr env =
 
 and interpret_call callee left_paren arguments env =
   match interpret_expression callee env with
-  | Error err ->
-      Error err
+  | Error _ as err ->
+      err
   | Ok (callee_val, callee_env) -> (
       let arguments_res =
         List.fold_left
           (fun prev_res next_expr ->
             match prev_res with
-            | Error error ->
-                Error error
+            | Error _ as err ->
+                err
             | Ok (val_acc, prev_env) -> (
                 let next_res = interpret_expression next_expr prev_env in
                 match next_res with
-                | Error error ->
-                    Error error
+                | Error _ as err ->
+                    err
                 | Ok (next_val, next_env) ->
                     Ok (next_val :: val_acc, next_env) ))
           (Ok ([], callee_env))
           arguments
       in
       match arguments_res with
-      | Error error ->
-          Error error
+      | Error _ as err ->
+          err
       | Ok (rev_args, args_env) -> (
           let call_args = List.rev rev_args in
           match callee_val with
-          | FunctionValue func -> (
+          | FunctionValue (func, class_inst_opt) -> (
               if func.arity != List.length call_args then
                 Error
                   [ create_error ~line:left_paren.line ~where:""
@@ -405,19 +436,24 @@ and interpret_call callee left_paren arguments env =
                         (sprintf "Expected %i arguments, got %i" func.arity
                            (List.length call_args)) ]
               else
-                match func.to_call call_args (get_global args_env) with
-                | Error error ->
-                    Error error
+                match
+                  func.to_call call_args (get_global args_env) class_inst_opt
+                with
+                | Error _ as err ->
+                    err
                 | Ok (call_val, new_global) ->
                     Ok (call_val, apply_global args_env new_global) )
           | ClassValue klass ->
-              if List.length call_args != 0 then
+              let init_arity = get_init_arity klass in
+              if List.length call_args != init_arity then
                 Error
                   [ create_error ~line:left_paren.line ~where:""
                       ~message:
-                        "No arguments are allowed when creating a class \
-                         instance!" ]
-              else Ok (ClassInstance {klass; env= create_class_env ()}, args_env)
+                        (sprintf
+                           "Constructor for %s expected %i arguments, got %i!"
+                           klass.class_name init_arity (List.length call_args))
+                  ]
+              else create_and_init_class klass call_args args_env
           | _ ->
               Error
                 [ create_error ~line:left_paren.line ~where:""
@@ -425,20 +461,38 @@ and interpret_call callee left_paren arguments env =
                       (sprintf "Can only call functions and classes, got %s"
                          (string_of_value callee_val)) ] ) )
 
+and create_and_init_class class_desc init_args env =
+  match create_class_inst class_desc with
+  | ClassInstance inst as new_instance -> (
+    match get_init_func inst with
+    | Some (FunctionValue (init_func, _)) -> (
+      match init_func.to_call init_args (get_global env) (Some inst) with
+      | Error _ as err ->
+          err
+      | Ok (_, new_global) ->
+          Ok (new_instance, apply_global env new_global) )
+    | _ ->
+        Ok (new_instance, env) )
+  (*Will never happen*)
+  | _ ->
+      Error []
+
 and interpret_get obj name env =
   match interpret_expression obj env with
-  | Error err ->
-      Error err
+  | Error _ as err ->
+      err
   | Ok (obj_val, env) -> (
     match obj_val with
     | ClassInstance inst -> (
-      match get_property inst.env name.lexeme with
+      match get_property inst name.lexeme with
       | Some value ->
           Ok (value, env)
       | None ->
           Error
             [ create_error ~line:name.line ~where:" at get call"
-                ~message:(sprintf "Undefined property %s!" name.lexeme) ] )
+                ~message:
+                  (sprintf "No property '%s' on instance %s!" name.lexeme
+                     (string_of_value obj_val)) ] )
     | _ ->
         Error
           [ create_error ~line:name.line ~where:" at get call"
@@ -448,17 +502,16 @@ and interpret_get obj name env =
 
 and interpret_set obj name value env =
   match interpret_expression obj env with
-  | Error err ->
-      Error err
+  | Error _ as err ->
+      err
   | Ok (obj_val, env) -> (
     match obj_val with
     | ClassInstance inst -> (
       match interpret_expression value env with
-      | Error err ->
-          Error err
+      | Error _ as err ->
+          err
       | Ok (set_val, env) ->
-          let new_class_env = set_property inst.env name.lexeme set_val in
-          inst.env <- new_class_env ;
+          set_property inst name.lexeme set_val ;
           Ok (NilValue, env) )
     | _ ->
         Error
@@ -473,8 +526,8 @@ let rec interpret env stmt_list =
       Ok (NilValue, env)
   | stmt :: rest -> (
     match interpret_stmt stmt env with
-    | Error err ->
-        Error err
+    | Error _ as err ->
+        err
     | Ok (value, new_env) -> (
       match value with
       | ReturnValue (_, line) ->

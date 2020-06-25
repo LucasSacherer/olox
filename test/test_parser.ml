@@ -49,6 +49,10 @@ let return_token = {Olox.Token.token_type= Return; lexeme= "return"; line= 1}
 
 let paren_token = {Olox.Token.token_type= LeftParen; lexeme= "("; line= 1}
 
+let this_token = {Olox.Token.token_type= This; lexeme= "this"; line= 1}
+
+let init_token = {Olox.Token.token_type= Identifier; lexeme= "init"; line= 1}
+
 (* unit tests start here *)
 let basic_tests_suite =
   "BasicSuite"
@@ -123,6 +127,19 @@ let basic_tests_suite =
                                  { keyword= return_token
                                  ; expr= Some (Variable {name= z_token}) } ] }
                      ; {name= z_token; params= []; body= BlockStmt []} ] } ] )
+         ; ( "BasicClassInit"
+           , "class x{init(){}}"
+           , [ ClassStmt
+                 { name= x_token
+                 ; methods=
+                     [ { name= init_token
+                       ; params= []
+                       ; body=
+                           BlockStmt
+                             [ ReturnStmt
+                                 { keyword= return_token
+                                 ; expr= Some (This {keyword= this_token}) } ]
+                       } ] } ] )
          ; ( "BasicCall"
            , "x(y,z,3.0);"
            , [ Statement
@@ -164,7 +181,12 @@ let basic_tests_suite =
                      Set
                        { obj= Get {name= y_token; obj= Variable {name= x_token}}
                        ; name= z_token
-                       ; value= Literal (FloatLiteral 3.0) } } ] ) ]
+                       ; value= Literal (FloatLiteral 3.0) } } ] )
+         ; ( "BasicThis"
+           , "return this;"
+           , [ ReturnStmt
+                 {keyword= return_token; expr= Some (This {keyword= this_token})}
+             ] ) ]
 
 let loop_tests_suite =
   "LoopSuite"
@@ -241,7 +263,10 @@ let basic_error_tests_suite =
            let token_list = Result.get_ok (scan_tokens to_parse) in
            let error_list = generate_error_list exp in
            title >:: fun _ -> run_error_parser_test token_list error_list)
-         [("NoEOFIf", "if if", [(1, " at end", "Expected '(' after 'if'!")])]
+         [ ("NoEOFIf", "if if", [(1, " at end", "Expected '(' after 'if'!")])
+         ; ( "ReturnInInit"
+           , "class X{init(){return a;}}"
+           , [(1, " at '}'", "Init function cannot contain return statement!")] ) ]
 
 (* full test suit and run function *)
 let full_suite =

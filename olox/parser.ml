@@ -82,6 +82,26 @@ let generate_for_loop init_stmt_opt cond_expr_opt inc_expr_opt body_stmt =
   in
   final_stmt
 
+(* Looks through statements and checks if any return statements are present. Used
+ * when parsing class init funcions since they can't contain returns. *)
+let rec contains_return = function
+  | ReturnStmt _ ->
+      true
+  | BlockStmt block ->
+      List.exists (fun bool -> bool) (List.map contains_return block)
+  | IfStmt ifstmt -> (
+      if contains_return ifstmt.then_branch then true
+      else
+        match ifstmt.else_branch with
+        | Some branch ->
+            contains_return branch
+        | None ->
+            false )
+  | WhileStmt whilestmt ->
+      contains_return whilestmt.body
+  | Statement _ | PrintStmt _ | VarStmt _ | ClassStmt _ | FuncStmt _ ->
+      false
+
 (* This should never fail, so this throws a fatal internal error. *)
 let convert_to_func_decl stmt_list =
   List.map
@@ -167,7 +187,35 @@ and parse_function tokens func_type =
       rest
   in
   let body, remain_tokens = parse_block_stmt rest in
-  (FuncStmt {name; params; body}, remain_tokens)
+  let func_stmt =
+    match (func_type, name.lexeme) with
+    | Method, "init" ->
+        modify_func_to_init name params body remain_tokens
+    | _, _ ->
+        FuncStmt {name; params; body}
+  in
+  (func_stmt, remain_tokens)
+
+and modify_func_to_init name params body remain_tokens =
+  if contains_return body then
+    raise
+      (Parser_Error
+         ("Init function cannot contain return statement!", remain_tokens)) ;
+  let dummy_return = {token_type= Return; lexeme= "return"; line= 1} in
+  let dummy_this = {token_type= This; lexeme= "this"; line= 1} in
+  match body with
+  | BlockStmt block ->
+      let new_body =
+        BlockStmt
+          (List.append block
+             [ ReturnStmt
+                 {keyword= dummy_return; expr= Some (This {keyword= dummy_this})}
+             ])
+      in
+      FuncStmt {name; params; body= new_body}
+  | _ ->
+      (*will never happen*)
+      raise (Parser_Error ("", []))
 
 and parse_class tokens =
   let name, rest =
@@ -530,6 +578,8 @@ and parse_primary tokens =
           parse_one_token RightParen "Expected ')' after expression!" rest
         in
         (Grouping {expr= next_expr}, rest)
+    | This ->
+        (This {keyword= head}, rest)
     | _ ->
         raise (Parser_Error ("Expected literal, ident, or group", tokens)) )
 

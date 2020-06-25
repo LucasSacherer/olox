@@ -7,25 +7,28 @@ type environ = value StringMap.t list * global_env
 
 and global_env = value StringMap.t
 
-and class_env = value StringMap.t
+and class_inst = {desc: class_desc; mutable class_env: value StringMap.t}
 
 and value =
   | StringValue of string
   | FloatValue of float
   | BoolValue of bool
-  | FunctionValue of
-      { arity: int
-      ; mutable to_call:
-             value list
-          -> global_env
-          -> (value * global_env, Reporting.error_record list) result
-      ; name: string }
+  | FunctionValue of func_desc * class_inst option
   | ClassValue of class_desc
-  | ClassInstance of {klass: class_desc; mutable env: class_env}
+  | ClassInstance of class_inst
   | ReturnValue of value * int
   | NilValue
 
-and class_desc = {name: string}
+and class_desc = {class_name: string; methods: func_desc list}
+
+and func_desc =
+  { arity: int
+  ; mutable to_call:
+         value list
+      -> global_env
+      -> class_inst option
+      -> (value * global_env, Reporting.error_record list) result
+  ; func_name: string }
 
 (* value functions *)
 let rec string_of_value = function
@@ -35,18 +38,24 @@ let rec string_of_value = function
       sprintf "Float: %f" fl
   | BoolValue bl ->
       sprintf "Bool: %b" bl
-  | FunctionValue func ->
-      sprintf "Function<%s:%i>" func.name func.arity
+  | FunctionValue (func, _) ->
+      print_func_desc func
   | ClassValue class_desc ->
       print_class_desc class_desc
   | ClassInstance inst ->
-      sprintf "Instance<%s>" (print_class_desc inst.klass)
+      print_class_inst inst
   | ReturnValue (value, _) ->
       sprintf "Return: {%s}" (string_of_value value)
   | NilValue ->
       "Nil"
 
-and print_class_desc desc = sprintf "Class<%s>" desc.name
+and print_class_desc desc =
+  sprintf "Class<name:%s methods:{%s}>" desc.class_name
+    (String.concat ";" (List.map print_func_desc desc.methods))
+
+and print_func_desc desc = sprintf "Function<%s:%i>" desc.func_name desc.arity
+
+and print_class_inst inst = sprintf "Instance<%s>" (print_class_desc inst.desc)
 
 let rec stringify = function
   | StringValue str ->
@@ -55,28 +64,55 @@ let rec stringify = function
       sprintf "%f" fl
   | BoolValue bl ->
       sprintf "%b" bl
-  | FunctionValue func ->
-      sprintf "%s:%i" func.name func.arity
+  | FunctionValue (func, _) ->
+      sprintf "%s:%i" func.func_name func.arity
   | ClassValue klass ->
       stringify_class_desc klass
   | ClassInstance inst ->
-      sprintf "instance:%s" (stringify_class_desc inst.klass)
+      sprintf "instance:%s" (stringify_class_desc inst.desc)
   | ReturnValue (value, _) ->
       sprintf "return:%s" (stringify value)
   | NilValue ->
       "Nil"
 
-and stringify_class_desc desc = sprintf "%s" desc.name
+and stringify_class_desc desc = sprintf "%s" desc.class_name
 
-(* class environ funcions *)
-let create_class_env () = StringMap.empty
+(* class instance functions *)
+let create_class_inst desc = ClassInstance {desc; class_env= StringMap.empty}
 
-let get_property class_env name = StringMap.find_opt name class_env
+let get_property class_inst name =
+  match StringMap.find_opt name class_inst.class_env with
+  | Some _ as value ->
+      value
+  | None -> (
+    match
+      List.find_opt
+        (fun meth -> String.equal meth.func_name name)
+        class_inst.desc.methods
+    with
+    | Some func_desc ->
+        (* If we get a function out, we need to give it the class_inst as 'this' *)
+        Some (FunctionValue (func_desc, Some class_inst))
+    | _ ->
+        None )
 
-let set_property class_env name value = StringMap.add name value class_env
+let set_property class_inst name value =
+  class_inst.class_env <- StringMap.add name value class_inst.class_env
 
 (* environ functions *)
 let from_global global_env = ([], global_env)
+
+let get_init_arity class_desc =
+  match List.find_opt (fun meth -> String.equal meth.func_name "init") class_desc.methods with
+  | None -> 0
+  | Some init_func -> init_func.arity
+
+let get_init_func class_inst =
+  match get_property class_inst "init" with
+  | Some (FunctionValue (_, _)) as func ->
+      func
+  | _ ->
+      None
 
 let define env name value =
   let scope_env, global_env = env in
@@ -90,9 +126,11 @@ let create_environ () =
   let new_env = ([], StringMap.empty) in
   define new_env "clock"
     (FunctionValue
-       { arity= 0
-       ; name= "clock"
-       ; to_call= (fun _ global -> Ok (FloatValue (Unix.time ()), global)) })
+       ( { arity= 0
+         ; func_name= "clock"
+         ; to_call= (fun _ global _ -> Ok (FloatValue (Unix.time ()), global))
+         }
+       , None ))
 
 let get env name =
   let rec search_scope scope_env =

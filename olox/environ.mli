@@ -7,40 +7,47 @@ type environ
 type global_env
 
 (** Imutable representation of a class' environment.*)
-type class_env
+type class_inst
 
 (** The diffierent values that can be stored in an environment *)
 type value =
   | StringValue of string
   | FloatValue of float
   | BoolValue of bool
-  | FunctionValue of
-      { arity: int
-      ; mutable to_call:
-             value list
-          -> global_env
-          -> (value * global_env, Reporting.error_record list) result
-      ; name: string }
+  | FunctionValue of func_desc * class_inst option
   | ClassValue of class_desc
-  | ClassInstance of {klass: class_desc; mutable env: class_env}
+  | ClassInstance of class_inst
   | ReturnValue of value * int
       (** This value is used internaly to implement return in functions.
           The [int] represents the line number where the return was called.*)
   | NilValue
 
-and class_desc = {name: string}
+and class_desc = {class_name: string; methods: func_desc list}
+
+and func_desc =
+  { arity: int
+  ; mutable to_call:
+         value list
+      -> global_env
+      -> class_inst option
+      -> (value * global_env, Reporting.error_record list) result
+  ; func_name: string }
 
 (* Funcitons on values *)
 val string_of_value : value -> string
 
 val stringify : value -> string
 
-(* Functions on class environments *)
-val create_class_env : unit -> class_env
+(* Functions on class instances *)
+val create_class_inst : class_desc -> value
 
-val get_property : class_env -> string -> value option
+val get_property : class_inst -> string -> value option
 
-val set_property : class_env -> string -> value -> class_env
+val set_property : class_inst -> string -> value -> unit
+
+val get_init_arity : class_desc -> int
+
+val get_init_func : class_inst -> value option
 
 (* Functions on an environ *)
 val create_environ : unit -> environ

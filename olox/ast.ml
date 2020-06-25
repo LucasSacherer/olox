@@ -27,6 +27,7 @@ type expression =
   | Logical of {left: expression; operator: Token.token; right: expression}
   | Set of {obj: expression; name: Token.token; value: expression}
   | Variable of {name: Token.token}
+  | This of {keyword: Token.token}
 
 type statement =
   | Statement of {expr: expression}
@@ -77,6 +78,8 @@ let rec string_of_expression = function
         (string_of_expression set.value)
   | Variable var ->
       sprintf "(variable '%s')" var.name.lexeme
+  | This _ ->
+      "(this)"
 
 let rec string_of_statement stmt =
   match stmt with

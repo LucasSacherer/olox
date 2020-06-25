@@ -68,7 +68,9 @@ let basic_tests_suite =
          ; ( "ClassGetSet"
            , "class X {} fun y(){var x = X();fun a(){return x.i;} x.i=2; \
               return a();} y();"
-           , FloatValue 2.0 ) ]
+           , FloatValue 2.0 )
+         ; ("ClassInit", "class X{init(n){this.a = n;}} X(2).a;", FloatValue 2.0)
+         ]
 
 let basic_error_tests_suite =
   "ErrorSuite"
@@ -89,6 +91,16 @@ let end_to_end_suite =
          [ ( "Fibonacci"
            , "fun fibonacci(n) {if (n<=1) return n; return fibonacci(n-2) + \
               fibonacci(n-1);} fibonacci(10);"
+           , FloatValue 55.0 )
+         ; ( "FibonacciClass"
+           , "class A{\n\
+             \  next() {var next = this.a + this.b; this.a = this.b; \n\
+             \          this.b = next; return next;}\n\
+             \  calc(n) {this.a = 0; this.b = 1; \n\
+             \           return this.calciter(n);}\n\
+             \  calciter(n) {if (n <= 0) return this.a; this.next();\n\
+             \                return this.calciter(n - 1);}}\n\
+              A().calc(10);"
            , FloatValue 55.0 ) ]
 
 (* full test suit and run function *)
