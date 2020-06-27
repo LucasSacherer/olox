@@ -221,6 +221,20 @@ and parse_class tokens =
   let name, rest =
     parse_one_token Identifier "Expected a class name after 'class'!" tokens
   in
+  let superclass, rest =
+    match rest with
+    | [] ->
+        raise (Parser_Error ("Expected '<' or '{' after class name!", []))
+    | head :: tail -> (
+      match head.token_type with
+      | Less ->
+          let super_name, rest =
+            parse_one_token Identifier "Expect superclass name after '<'!" tail
+          in
+          (Some (Variable {name= super_name}), rest)
+      | _ ->
+          (None, rest) )
+  in
   let _, rest =
     parse_one_token LeftBrace "Expected '{' after class name!" rest
   in
@@ -242,7 +256,7 @@ and parse_class tokens =
     parse_one_token RightBrace "Expected '}' at the end of class definition!"
       rest
   in
-  (ClassStmt {name; methods}, rest)
+  (ClassStmt {name; superclass; methods}, rest)
 
 and parse_var_decl tokens =
   let name, rest =

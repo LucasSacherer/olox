@@ -113,11 +113,14 @@ let basic_tests_suite =
          ; ( "BasicReturnStmtNoExpr"
            , "return;"
            , [ReturnStmt {expr= None; keyword= return_token}] )
-         ; ("BasicClass", "class x{}", [ClassStmt {name= x_token; methods= []}])
+         ; ( "BasicClass"
+           , "class x{}"
+           , [ClassStmt {name= x_token; superclass= None; methods= []}] )
          ; ( "BasicClassMethods"
            , "class x{y(z){return z;}z(){}}"
            , [ ClassStmt
                  { name= x_token
+                 ; superclass= None
                  ; methods=
                      [ { name= y_token
                        ; params= [z_token]
@@ -131,6 +134,7 @@ let basic_tests_suite =
            , "class x{init(){}}"
            , [ ClassStmt
                  { name= x_token
+                 ; superclass= None
                  ; methods=
                      [ { name= init_token
                        ; params= []
@@ -186,7 +190,13 @@ let basic_tests_suite =
            , "return this;"
            , [ ReturnStmt
                  {keyword= return_token; expr= Some (This {keyword= this_token})}
-             ] ) ]
+             ] )
+         ; ( "BasicClassInheritance"
+           , "class x < y {}"
+           , [ ClassStmt
+                 { name= x_token
+                 ; superclass= Some (Variable {name= y_token})
+                 ; methods= [] } ] ) ]
 
 let loop_tests_suite =
   "LoopSuite"
@@ -266,7 +276,8 @@ let basic_error_tests_suite =
          [ ("NoEOFIf", "if if", [(1, " at end", "Expected '(' after 'if'!")])
          ; ( "ReturnInInit"
            , "class X{init(){return a;}}"
-           , [(1, " at '}'", "Init function cannot contain return statement!")] ) ]
+           , [(1, " at '}'", "Init function cannot contain return statement!")]
+           ) ]
 
 (* full test suit and run function *)
 let full_suite =

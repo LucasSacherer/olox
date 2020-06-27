@@ -75,7 +75,7 @@ let rec interpret_stmt stmt env =
   | ReturnStmt stmt ->
       interpret_return stmt.keyword stmt.expr env
   | ClassStmt stmt ->
-      interpret_class stmt.name stmt.methods env
+      interpret_class stmt.name stmt.superclass stmt.methods env
 
 and interpret_print expr env =
   match interpret_expression expr env with
@@ -216,23 +216,48 @@ and interpret_return symbol expr_opt env =
   | Ok (value, env) ->
       Ok (ReturnValue (value, symbol.line), env)
 
-and interpret_class name method_defs env =
-  let methods =
-    List.map
-      (fun def ->
-        { arity= List.length def.params
-        ; func_name= def.name.lexeme
-        ; to_call= dummy_function })
-      method_defs
+and interpret_class name superclass_opt method_defs env =
+  let superclass_res =
+    match superclass_opt with
+    | None ->
+        Ok (None, env)
+    | Some expr -> (
+      match interpret_expression expr env with
+      | Ok (value, env) -> (
+        match value with
+        | ClassValue klass ->
+            if String.equal klass.class_name name.lexeme then
+              Error
+                [ create_error ~line:name.line ~where:" at class definition"
+                    ~message:"Class cannot inherit from itself!" ]
+            else Ok (Some klass, env)
+        | _ ->
+            Error
+              [ create_error ~line:name.line ~where:" at superclass decleration"
+                  ~message:"Superclass must be a class!" ] )
+      | Error _ as err ->
+          err )
   in
-  let klass = ClassValue {class_name= name.lexeme; methods} in
-  let new_env = define env name.lexeme klass in
-  List.iter2
-    (fun meth def ->
-      let to_call = gen_func_to_call def.params def.body new_env in
-      meth.to_call <- to_call)
-    methods method_defs ;
-  Ok (NilValue, new_env)
+  match superclass_res with
+  | Error _ as err ->
+      err
+  | Ok (superclass, env) ->
+      let methods =
+        List.map
+          (fun def ->
+            { arity= List.length def.params
+            ; func_name= def.name.lexeme
+            ; to_call= dummy_function })
+          method_defs
+      in
+      let klass = ClassValue {class_name= name.lexeme; superclass; methods} in
+      let new_env = define env name.lexeme klass in
+      List.iter2
+        (fun meth def ->
+          let to_call = gen_func_to_call def.params def.body new_env in
+          meth.to_call <- to_call)
+        methods method_defs ;
+      Ok (NilValue, new_env)
 
 and interpret_expression expr env =
   match expr with

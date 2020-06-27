@@ -19,7 +19,8 @@ and value =
   | ReturnValue of value * int
   | NilValue
 
-and class_desc = {class_name: string; methods: func_desc list}
+and class_desc =
+  {class_name: string; superclass: class_desc option; methods: func_desc list}
 
 and func_desc =
   { arity: int
@@ -50,7 +51,12 @@ let rec string_of_value = function
       "Nil"
 
 and print_class_desc desc =
-  sprintf "Class<name:%s methods:{%s}>" desc.class_name
+  sprintf "Class<name:%s super:%s methods:{%s}>" desc.class_name
+    ( match desc.superclass with
+    | None ->
+        "()"
+    | Some super ->
+        print_class_desc super )
     (String.concat ";" (List.map print_func_desc desc.methods))
 
 and print_func_desc desc = sprintf "Function<%s:%i>" desc.func_name desc.arity
@@ -80,21 +86,28 @@ and stringify_class_desc desc = sprintf "%s" desc.class_name
 (* class instance functions *)
 let create_class_inst desc = ClassInstance {desc; class_env= StringMap.empty}
 
+let rec find_method class_desc class_inst name =
+  match
+    List.find_opt
+      (fun meth -> String.equal meth.func_name name)
+      class_desc.methods
+  with
+  | Some func_desc ->
+      (* If we get a function out, we need to give it the class_inst as 'this' *)
+      Some (FunctionValue (func_desc, Some class_inst))
+  | _ -> (
+    match class_desc.superclass with
+    | None ->
+        None
+    | Some super ->
+        find_method super class_inst name )
+
 let get_property class_inst name =
   match StringMap.find_opt name class_inst.class_env with
   | Some _ as value ->
       value
-  | None -> (
-    match
-      List.find_opt
-        (fun meth -> String.equal meth.func_name name)
-        class_inst.desc.methods
-    with
-    | Some func_desc ->
-        (* If we get a function out, we need to give it the class_inst as 'this' *)
-        Some (FunctionValue (func_desc, Some class_inst))
-    | _ ->
-        None )
+  | None ->
+      find_method class_inst.desc class_inst name
 
 let set_property class_inst name value =
   class_inst.class_env <- StringMap.add name value class_inst.class_env
@@ -103,9 +116,15 @@ let set_property class_inst name value =
 let from_global global_env = ([], global_env)
 
 let get_init_arity class_desc =
-  match List.find_opt (fun meth -> String.equal meth.func_name "init") class_desc.methods with
-  | None -> 0
-  | Some init_func -> init_func.arity
+  match
+    List.find_opt
+      (fun meth -> String.equal meth.func_name "init")
+      class_desc.methods
+  with
+  | None ->
+      0
+  | Some init_func ->
+      init_func.arity
 
 let get_init_func class_inst =
   match get_property class_inst "init" with

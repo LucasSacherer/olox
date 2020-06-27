@@ -70,7 +70,9 @@ let basic_tests_suite =
               return a();} y();"
            , FloatValue 2.0 )
          ; ("ClassInit", "class X{init(n){this.a = n;}} X(2).a;", FloatValue 2.0)
-         ]
+         ; ( "ClassInheritence"
+           , "class a {foo(){return 2;}} class b < a {} b().foo();"
+           , FloatValue 2.0 ) ]
 
 let basic_error_tests_suite =
   "ErrorSuite"
@@ -81,7 +83,11 @@ let basic_error_tests_suite =
          [ ("UninitializedVar", "a + 1;", [(1, "", "No variable called 'a'")])
          ; ( "ReturnNotInFunc"
            , "return 1;"
-           , [(1, " at return", "Called return outside of a function!")] ) ]
+           , [(1, " at return", "Called return outside of a function!")] )
+         ; ( "InheritFromSelf"
+           , "class a {} class a < a {}"
+           , [(1, " at class definition", "Class cannot inherit from itself!")]
+           ) ]
 
 let end_to_end_suite =
   "EndToEnd"

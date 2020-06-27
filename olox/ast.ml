@@ -35,7 +35,8 @@ type statement =
   | ReturnStmt of {keyword: Token.token; expr: expression option}
   | VarStmt of {name: Token.token; init: expression option}
   | BlockStmt of statement list
-  | ClassStmt of {name: Token.token; methods: func_def list}
+  | ClassStmt of
+      {name: Token.token; superclass: expression option; methods: func_def list}
   | IfStmt of
       { condition: expression
       ; then_branch: statement
@@ -119,7 +120,12 @@ let rec string_of_statement stmt =
   | FuncStmt stmt ->
       string_of_function_def stmt
   | ClassStmt stmt ->
-      sprintf "Class:(name:%s methods:{%s})" stmt.name.lexeme
+      sprintf "Class:(name:%s super:%s methods:{%s})" stmt.name.lexeme
+        ( match stmt.superclass with
+        | Some super ->
+            string_of_expression super
+        | None ->
+            "()" )
         (String.concat "," (List.map string_of_function_def stmt.methods))
 
 and string_of_function_def func_def =

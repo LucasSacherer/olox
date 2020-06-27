@@ -22,7 +22,8 @@ type value =
           The [int] represents the line number where the return was called.*)
   | NilValue
 
-and class_desc = {class_name: string; methods: func_desc list}
+and class_desc =
+  {class_name: string; superclass: class_desc option; methods: func_desc list}
 
 and func_desc =
   { arity: int
