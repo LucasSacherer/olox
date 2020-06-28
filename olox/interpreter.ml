@@ -252,9 +252,16 @@ and interpret_class name superclass_opt method_defs env =
       in
       let klass = ClassValue {class_name= name.lexeme; superclass; methods} in
       let new_env = define env name.lexeme klass in
+      let function_env =
+        match superclass with
+        | None ->
+            new_env
+        | Some super ->
+            define (push_env new_env) "super" (ClassValue super)
+      in
       List.iter2
         (fun meth def ->
-          let to_call = gen_func_to_call def.params def.body new_env in
+          let to_call = gen_func_to_call def.params def.body function_env in
           meth.to_call <- to_call)
         methods method_defs ;
       Ok (NilValue, new_env)
@@ -283,6 +290,8 @@ and interpret_expression expr env =
       interpret_set set.obj set.name set.value env
   | This this ->
       interpret_variable this.keyword env
+  | Super super ->
+      interpret_super super.keyword super.meth env
 
 and interpret_literal lit env =
   match lit with
@@ -368,6 +377,44 @@ and interpret_variable var_name env =
       Error
         [ create_error ~line:var_name.line ~where:""
             ~message:(sprintf "No variable called '%s'" var_name.lexeme) ]
+
+and interpret_super keyword meth env =
+  match get env "super" with
+  | None ->
+      Error
+        [ create_error ~line:keyword.line ~where:" at 'super'"
+            ~message:
+              "Invalid use of 'super': either not in a class or class has no \
+               superclass!" ]
+  | Some super_val -> (
+    match super_val with
+    | ClassValue super_desc -> (
+      match get env "this" with
+      | None ->
+          (* should never happen*)
+          Error
+            [ create_error ~line:keyword.line ~where:" at 'super'"
+                ~message:
+                  "Invalid use of 'super': super must be called from inside a \
+                   method call!" ]
+      | Some caller_val -> (
+        match caller_val with
+        | ClassInstance caller -> (
+          match get_method super_desc meth.lexeme with
+          | Some func_desc ->
+              Ok (FunctionValue (func_desc, Some caller), env)
+          | None ->
+              Error
+                [ create_error ~line:meth.line ~where:" at 'super' call"
+                    ~message:
+                      (sprintf "Property '%s' not found in superclass!"
+                         meth.lexeme) ] )
+        | _ ->
+            (*Will never happen*)
+            Error [] ) )
+    | _ ->
+        (* will never happen *)
+        Error [] )
 
 and interpret_assign name expr env =
   match interpret_expression expr env with

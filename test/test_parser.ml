@@ -51,6 +51,8 @@ let paren_token = {Olox.Token.token_type= LeftParen; lexeme= "("; line= 1}
 
 let this_token = {Olox.Token.token_type= This; lexeme= "this"; line= 1}
 
+let super_token = {Olox.Token.token_type= Super; lexeme= "super"; line= 1}
+
 let init_token = {Olox.Token.token_type= Identifier; lexeme= "init"; line= 1}
 
 (* unit tests start here *)
@@ -196,7 +198,15 @@ let basic_tests_suite =
            , [ ClassStmt
                  { name= x_token
                  ; superclass= Some (Variable {name= y_token})
-                 ; methods= [] } ] ) ]
+                 ; methods= [] } ] )
+         ; ( "BasicSuperCall"
+           , "super.x(y);"
+           , [ Statement
+                 { expr=
+                     Call
+                       { callee= Super {keyword= super_token; meth= x_token}
+                       ; paren= paren_token
+                       ; arguments= [Variable {name= y_token}] } } ] ) ]
 
 let loop_tests_suite =
   "LoopSuite"
@@ -277,7 +287,10 @@ let basic_error_tests_suite =
          ; ( "ReturnInInit"
            , "class X{init(){return a;}}"
            , [(1, " at '}'", "Init function cannot contain return statement!")]
-           ) ]
+           )
+         ; ( "SuperWithNoCall"
+           , "return super;"
+           , [(1, " at ';'", "Expected '.' after 'super'!")] ) ]
 
 (* full test suit and run function *)
 let full_suite =

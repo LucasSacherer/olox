@@ -15,6 +15,7 @@ type expression =
   | Logical of {left: expression; operator: Token.token; right: expression}
   | Set of {obj: expression; name: Token.token; value: expression}
   | Variable of {name: Token.token}
+  | Super of {keyword: Token.token; meth: Token.token}
   | This of {keyword: Token.token}
 
 type statement =

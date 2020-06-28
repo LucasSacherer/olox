@@ -39,7 +39,7 @@ val string_of_value : value -> string
 
 val stringify : value -> string
 
-(* Functions on class instances *)
+(* Functions on class instances or descriptions *)
 val create_class_inst : class_desc -> value
 
 val get_property : class_inst -> string -> value option
@@ -49,6 +49,8 @@ val set_property : class_inst -> string -> value -> unit
 val get_init_arity : class_desc -> int
 
 val get_init_func : class_inst -> value option
+
+val get_method : class_desc -> string -> func_desc option
 
 (* Functions on an environ *)
 val create_environ : unit -> environ

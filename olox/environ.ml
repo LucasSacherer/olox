@@ -83,31 +83,35 @@ let rec stringify = function
 
 and stringify_class_desc desc = sprintf "%s" desc.class_name
 
-(* class instance functions *)
+(* Functions on class instances or descriptions *)
 let create_class_inst desc = ClassInstance {desc; class_env= StringMap.empty}
 
-let rec find_method class_desc class_inst name =
+let rec get_method class_desc name =
   match
     List.find_opt
       (fun meth -> String.equal meth.func_name name)
       class_desc.methods
   with
-  | Some func_desc ->
+  | Some _ as func_desc ->
+      func_desc
       (* If we get a function out, we need to give it the class_inst as 'this' *)
-      Some (FunctionValue (func_desc, Some class_inst))
   | _ -> (
     match class_desc.superclass with
     | None ->
         None
     | Some super ->
-        find_method super class_inst name )
+        get_method super name )
 
 let get_property class_inst name =
   match StringMap.find_opt name class_inst.class_env with
   | Some _ as value ->
       value
-  | None ->
-      find_method class_inst.desc class_inst name
+  | None -> (
+    match get_method class_inst.desc name with
+    | None ->
+        None
+    | Some desc ->
+        Some (FunctionValue (desc, Some class_inst)) )
 
 let set_property class_inst name value =
   class_inst.class_env <- StringMap.add name value class_inst.class_env

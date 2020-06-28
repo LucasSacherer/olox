@@ -72,7 +72,11 @@ let basic_tests_suite =
          ; ("ClassInit", "class X{init(n){this.a = n;}} X(2).a;", FloatValue 2.0)
          ; ( "ClassInheritence"
            , "class a {foo(){return 2;}} class b < a {} b().foo();"
-           , FloatValue 2.0 ) ]
+           , FloatValue 2.0 )
+         ; ( "ClassSuper"
+           , "class a{x(){return 3;}} class b < a{x(){return super.x() + 2;}} \
+              class c < b{x(){return super.x() + 1;}} c().x();"
+           , FloatValue 6.0 ) ]
 
 let basic_error_tests_suite =
   "ErrorSuite"

@@ -594,8 +594,28 @@ and parse_primary tokens =
         (Grouping {expr= next_expr}, rest)
     | This ->
         (This {keyword= head}, rest)
+    | Super -> (
+      match rest with
+      | [] ->
+          raise (Parser_Error ("Expected '.' after 'super'!", []))
+      | dot :: dot_rest -> (
+        match dot.token_type with
+        | Dot -> (
+          match dot_rest with
+          | [] ->
+              raise (Parser_Error ("Expected method name after 'super.'!", []))
+          | name :: name_rest -> (
+            match name.token_type with
+            | Identifier ->
+                (Ast.Super {keyword= head; meth= name}, name_rest)
+            | _ ->
+                raise
+                  (Parser_Error
+                     ("Expected method name after 'super.'!", dot_rest)) ) )
+        | _ ->
+            raise (Parser_Error ("Expected '.' after 'super'!", rest)) ) )
     | _ ->
-        raise (Parser_Error ("Expected literal, ident, or group", tokens)) )
+        raise (Parser_Error ("Expected literal, ident, or group!", tokens)) )
 
 let rec synchronize tokens =
   match tokens with
