@@ -41,21 +41,18 @@ let parse_one_token token_type message tokens =
       if head.token_type == token_type then (head, rest)
       else raise (Parser_Error (message, rest))
 
-(* Creates a fuction that makes sure that the next token is a semicolon.
- * If it is, make the callback. This is used at the end of parsing statements. *)
-let parse_gen_stmt to_call =
-  let parse_stmt_aux expr tokens =
-    match tokens with
-    | [] ->
-        raise (Parser_Error ("Missing semicolon after value!", tokens))
-    | head :: rest -> (
-      match head.token_type with
-      | Semicolon ->
-          to_call expr rest
-      | _ ->
-          raise (Parser_Error ("Expected semicolon after value!", tokens)) )
-  in
-  parse_stmt_aux
+(* Checks if the next token is a semicolon. If it is, call the callback.
+ * If it's not, raises on exception. This is used at the end of parsing statements. *)
+let consume_semicolon to_call expr tokens =
+  match tokens with
+  | [] ->
+      raise (Parser_Error ("Missing semicolon after value!", tokens))
+  | head :: rest -> (
+    match head.token_type with
+    | Semicolon ->
+        to_call expr rest
+    | _ ->
+        raise (Parser_Error ("Expected semicolon after value!", tokens)) )
 
 (* Desugars a for loop into a block statement containing a while loop. *)
 let generate_for_loop init_stmt_opt cond_expr_opt inc_expr_opt body_stmt =
@@ -308,7 +305,7 @@ and parse_stmt tokens =
 
 and parse_print_stmt tokens =
   let new_expr, rest = parse_expression tokens in
-  (parse_gen_stmt (fun expr toks -> (PrintStmt {expr}, toks))) new_expr rest
+  consume_semicolon (fun expr toks -> (PrintStmt {expr}, toks)) new_expr rest
 
 and parse_block_stmt tokens =
   let rec parse_next_stmt tokens acc =
@@ -433,7 +430,7 @@ and parse_return_stmt keyword tokens =
 
 and parse_expr_stmt tokens =
   let new_expr, rest = parse_expression tokens in
-  (parse_gen_stmt (fun expr toks -> (Statement {expr}, toks))) new_expr rest
+  consume_semicolon (fun expr toks -> (Statement {expr}, toks)) new_expr rest
 
 and parse_expression tokens = parse_assignment tokens
 
