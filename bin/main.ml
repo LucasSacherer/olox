@@ -4,7 +4,7 @@
 open Olox.Reporting
 
 (** Runs the interpreter on the given string *)
-let run str env =
+let run str env is_file =
   let token_res = Olox.Scanner.scan_tokens str in
   let parse_res = Result.bind token_res (Olox.Parser.parse [] []) in
   let interpret_res = Result.bind parse_res (Olox.Interpreter.interpret env) in
@@ -12,7 +12,7 @@ let run str env =
   | Error err_list ->
       print_error_list err_list ; env
   | Ok (value, new_env) ->
-      print_endline (Olox.Environ.string_of_value value) ;
+      if not is_file then print_endline (Olox.Environ.string_of_value value) ;
       new_env
 
 (** Tries to read a line from the given input channel and catches the error *)
@@ -27,7 +27,7 @@ let run_prompt () =
     | None ->
         print_endline "Session Ended"
     | Some s ->
-        let new_env = run s env in
+        let new_env = run s env false in
         do_repl new_env
   in
   do_repl (Olox.Environ.create_environ ())
@@ -43,7 +43,7 @@ let run_file file_name =
         close_in ic ; List.rev acc
   in
   let file = String.concat "\n" (loop []) in
-  ignore (run file (Olox.Environ.create_environ ()))
+  ignore (run file (Olox.Environ.create_environ ()) true)
 
 (** Calls the different read command depending on the number of args *)
 let parse_args =

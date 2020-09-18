@@ -1,4 +1,5 @@
 (executable
  (name main)
+ (public_name olox)
  (libraries olox)
  (modes exe byte))

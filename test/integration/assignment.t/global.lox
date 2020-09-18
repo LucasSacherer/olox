@@ -1,0 +1,8 @@
+var a = "before";
+print a; // expect: before
+
+var b = "after";
+print b; // expect: after
+
+print a = "arg"; // expect: arg
+print a; // expect: arg

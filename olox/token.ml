@@ -44,7 +44,6 @@ type token_type =
   | Var
   | While
   (* source file stuff *)
-  | Comment
   | EOF
 
 let get_token_name = function
@@ -124,8 +123,6 @@ let get_token_name = function
       "Var"
   | While ->
       "While"
-  | Comment ->
-      "Comment"
   | EOF ->
       "EOF"
 

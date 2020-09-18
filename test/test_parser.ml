@@ -65,6 +65,10 @@ let basic_tests_suite =
          [ ( "BasicPrint"
            , "print 1;"
            , [PrintStmt {expr= Literal (FloatLiteral 1.0)}] )
+         ; ( "ChainPrint"
+           , "print x; print y;"
+           , [ PrintStmt {expr= Variable {name= x_token}}
+             ; PrintStmt {expr= Variable {name= y_token}} ] )
          ; ( "BasicIf"
            , "if (true) 1;"
            , [ IfStmt

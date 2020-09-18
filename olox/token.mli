@@ -47,7 +47,6 @@ type token_type =
   | Var
   | While
   (* source file stuff *)
-  | Comment
   | EOF
 
 (** The token type produced by the scanner and consumed by the parser. [lexeme] 

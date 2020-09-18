@@ -104,23 +104,6 @@ let rec scan_string str start_pos =
         let next_pos = {start_pos with current= start_pos.current + 1} in
         scan_string str next_pos )
 
-let rec scan_comment str start_pos =
-  match try_peek str start_pos with
-  | None ->
-      create_token_pos_pair str start_pos Comment
-  | Some next_char -> (
-    match next_char with
-    | '\n' ->
-        let next_pos =
-          { start_pos with
-            current= start_pos.current + 1
-          ; line= start_pos.line + 1 }
-        in
-        create_token_pos_pair str next_pos Comment
-    | _ ->
-        let next_pos = {start_pos with current= start_pos.current + 1} in
-        scan_comment str next_pos )
-
 let rec scan_digits str start_pos =
   match try_peek str start_pos with
   | None ->
@@ -160,11 +143,6 @@ let scan_number str start_pos =
   let lexeme = String.sub str final_pos.start length in
   let float_val = float_of_string lexeme in
   create_token_pos_pair str final_pos (Number float_val)
-
-let scan_slash str start_pos =
-  let got_match, final_pos = try_look_ahead str start_pos '/' in
-  if got_match then scan_comment str final_pos
-  else create_token_pos_pair str final_pos Slash
 
 let create_ident_token str pos =
   let length = pos.current - pos.start in
@@ -249,6 +227,26 @@ let rec scan_token str pos =
         , Error
             (create_error ~line:next_pos.line ~where:""
                ~message:(sprintf "Unexpected character: '%c'" next_char)) ) )
+
+(* Dealing with comments require calling scan_token in a mutually recursive way,
+ * so they need to be 'and'ed. All other scanning returns a token, so they are
+ * not an issue. *)
+and scan_slash str start_pos =
+  let got_match, final_pos = try_look_ahead str start_pos '/' in
+  if got_match then scan_comment str final_pos
+  else create_token_pos_pair str final_pos Slash
+
+and scan_comment str start_pos =
+  match try_peek str start_pos with
+  | None ->
+      scan_token str start_pos
+  | Some next_char -> (
+    match next_char with
+    | '\n' ->
+        scan_token str start_pos
+    | _ ->
+        let next_pos = {start_pos with current= start_pos.current + 1} in
+        scan_comment str next_pos )
 
 let rec scan_tokens_aux str pos acc error_acc =
   let new_pos, new_tok = scan_token str pos in
