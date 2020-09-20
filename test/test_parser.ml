@@ -5,32 +5,22 @@ open Olox.Reporting
 open Olox.Parser
 
 (* test helper functions *)
-let stmt_list_assert_equal = assert_equal ~printer:string_of_stmt_list
-
-let error_list_assert_equal = assert_equal ~printer:string_of_error_list
-
 let generate_error_list specs =
-  let rec loop specs acc =
-    match specs with
-    | [] ->
-        List.rev acc
-    | head :: rest ->
-        let line, where, message = head in
-        let new_error = create_error ~line ~where ~message in
-        loop rest (new_error :: acc)
-  in
-  loop specs []
+  List.map (fun (line, where, message) -> create_error ~line ~where ~message) specs
 
 let run_parser_test input expected =
   match parse [] [] input with
   | Ok stmt_list ->
-      stmt_list_assert_equal expected stmt_list
+      assert_equal ~printer:string_of_stmt_list expected stmt_list
   | Error err_list ->
       assert_failure (string_of_error_list err_list)
 
 let run_error_parser_test input expected =
-  let error_list = Result.get_error (parse [] [] input) in
-  error_list_assert_equal expected error_list
+  match parse [] [] input with
+  | Ok stmt_list ->
+      assert_failure (string_of_stmt_list stmt_list)
+  | Error err_list ->
+      assert_equal ~printer:string_of_error_list expected err_list
 
 (* test helper structs *)
 

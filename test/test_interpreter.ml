@@ -4,37 +4,29 @@ open Olox.Environ
 open Olox.Interpreter
 
 (* test helper functions *)
-let value_assert_equal = assert_equal ~printer:string_of_value
-
-let error_assert_equal = assert_equal ~printer:string_of_error_list
-
 let generate_error_list specs =
-  let rec loop specs acc =
-    match specs with
-    | [] ->
-        List.rev acc
-    | head :: rest ->
-        let line, where, message = head in
-        loop rest (create_error ~line ~where ~message :: acc)
-  in
-  loop specs []
+  List.map
+    (fun (line, where, message) -> create_error ~line ~where ~message)
+    specs
 
-let scan_and_parse input =
-  let tokens_res = Olox.Scanner.scan_tokens input in
-  let tokens = Result.get_ok tokens_res in
-  Result.get_ok (Olox.Parser.parse [] [] tokens)
+let try_interpret input =
+  let scanner_res = Olox.Scanner.scan_tokens input in
+  let parser_res = Result.bind scanner_res (Olox.Parser.parse [] []) in
+  Result.bind parser_res (interpret (create_environ ()))
 
 let run_interpreter_test input expected =
-  let stmt_list = scan_and_parse input in
-  let res = interpret (create_environ ()) stmt_list in
-  let value, _ = Result.get_ok res in
-  value_assert_equal expected value
+  match try_interpret input with
+  | Ok (value, _) ->
+      assert_equal ~printer:string_of_value expected value
+  | Error err_list ->
+      assert_failure (string_of_error_list err_list)
 
 let run_error_parser_test input expected =
-  let stmt_list = scan_and_parse input in
-  let res = interpret (create_environ ()) stmt_list in
-  let error = Result.get_error res in
-  error_assert_equal expected error
+  match try_interpret input with
+  | Ok (value, _) ->
+      assert_failure (string_of_value value)
+  | Error err_list ->
+      assert_equal ~printer:string_of_error_list expected err_list
 
 (* unit tests start here *)
 let basic_tests_suite =

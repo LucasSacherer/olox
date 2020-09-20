@@ -1,6 +1,7 @@
 open OUnit2
 open Olox.Token
 open Olox.Scanner
+open Olox.Reporting
 
 (* 
  * The only public function of the scanner is scan_tokens
@@ -9,24 +10,16 @@ open Olox.Scanner
  *)
 
 (* test helper functions *)
-let token_list_assert_equal = assert_equal ~printer:string_of_token_list
-
 let generate_token_list specs =
-  let rec loop specs acc =
-    match specs with
-    | [] ->
-        List.rev acc
-    | head :: rest ->
-        let token_type, lexeme, line = head in
-        let new_token = {token_type; lexeme; line} in
-        loop rest (new_token :: acc)
-  in
-  loop specs []
+  List.map (fun (token_type, lexeme, line) -> {token_type; lexeme; line}) specs
 
 let run_scanner_test input expected =
   let expected_tokens = generate_token_list expected in
-  let tokens = Result.get_ok (scan_tokens input) in
-  token_list_assert_equal expected_tokens tokens
+  match scan_tokens input with
+  | Ok tokens ->
+      assert_equal ~printer:string_of_token_list expected_tokens tokens
+  | Error error ->
+      assert_failure (string_of_error_list error)
 
 (* unit tests start here *)
 (* new line tests *)
