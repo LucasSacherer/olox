@@ -1,0 +1,4 @@
+class Foo {}
+
+var foo = Foo();
+foo(); // expect runtime error: can only call functions and classes

@@ -1,0 +1,1 @@
+true(); // expect runtime error: can only call functions and classes

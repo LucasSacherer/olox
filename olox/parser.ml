@@ -632,10 +632,12 @@ let rec parse prev_stmts prev_errors tokens =
   | [] ->
       if List.length prev_errors > 0 then Error (List.rev prev_errors)
       else Ok (List.rev prev_stmts)
-  | head :: _ -> (
+  | head :: rest -> (
     match head.token_type with
     | EOF ->
         parse prev_stmts prev_errors []
+    | Semicolon ->
+        parse prev_stmts prev_errors rest
     | _ -> (
       try
         let next_stmt, rest_tokens = parse_decl tokens in

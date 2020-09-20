@@ -22,8 +22,11 @@ let generate_error_list specs =
   loop specs []
 
 let run_parser_test input expected =
-  let stmt_list = Result.get_ok (parse [] [] input) in
-  stmt_list_assert_equal expected stmt_list
+  match parse [] [] input with
+  | Ok stmt_list ->
+      stmt_list_assert_equal expected stmt_list
+  | Error err_list ->
+      assert_failure (string_of_error_list err_list)
 
 let run_error_parser_test input expected =
   let error_list = Result.get_error (parse [] [] input) in
@@ -150,6 +153,7 @@ let basic_tests_suite =
                                  { keyword= return_token
                                  ; expr= Some (This {keyword= this_token}) } ]
                        } ] } ] )
+         ; ("BasicSemicolon", ";;", [])
          ; ( "BasicCall"
            , "x(y,z,3.0);"
            , [ Statement

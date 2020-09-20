@@ -1,0 +1,22 @@
+class Foo {
+  inFoo() {
+    print "in Foo";
+  }
+}
+
+class Bar < Foo {
+  inBar() {
+    print "in Bar";
+  }
+}
+
+class Baz < Bar {
+  inBaz() {
+    print "in Baz";
+  }
+}
+
+var baz = Baz();
+baz.inFoo(); // expect: in Foo
+baz.inBar(); // expect: in Bar
+baz.inBaz(); // expect: in Baz
